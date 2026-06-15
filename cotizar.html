@@ -59,8 +59,8 @@ body{font-family:Nunito Sans,sans-serif;background:linear-gradient(160deg,#0a1a3
         </div>
         <div style="display:flex;gap:10px;">
           <div style="flex:1;">
-            <label class=co-lbl>Fecha de nacimiento *</label>
-            <input id=co_nac class=co-inp type=date>
+            <label class=co-lbl>Año de nacimiento *</label>
+            <select id=co_nacAnio class=co-inp><option value="">Año…</option></select>
           </div>
           <div style="flex:1;">
             <label class=co-lbl>Género *</label>
@@ -73,7 +73,11 @@ body{font-family:Nunito Sans,sans-serif;background:linear-gradient(160deg,#0a1a3
         </div>
         <div>
           <label class=co-lbl>Modelo *</label>
-          <select id=co_modelo class=co-inp disabled><option value="">Elegí marca primero</option></select>
+          <select id=co_modelo class=co-inp disabled onchange="coModeloChange()"><option value="">Elegí marca primero</option></select>
+        </div>
+        <div>
+          <label class=co-lbl>Versión *</label>
+          <select id=co_version class=co-inp disabled><option value="">Elegí modelo primero</option></select>
           <button type=button id=co_btnBuscar onclick="coBuscarModelos()" style="margin-top:6px;font-size:11px;background:#8e44ad14;color:#8e44ad;border:1px solid #8e44ad55;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:700;">🔍 ¿No está? Buscar modelo</button>
           <div id=co_buscarMsg style="font-size:11px;margin-top:5px;display:none;"></div>
         </div>
@@ -112,7 +116,7 @@ body{font-family:Nunito Sans,sans-serif;background:linear-gradient(160deg,#0a1a3
   </div>
 
   <div class=foot>
-    ¿Preferís hablar con un productor? <a href="https://wa.me/5491151202232?text=Hola!%20Quiero%20cotizar%20un%20seguro." target=_blank>Escribinos por WhatsApp</a><br>
+    ¿Preferís hablar con un productor? <a href="https://wa.me/5491154522619?text=Hola!%20Quiero%20cotizar%20un%20seguro." target=_blank>Escribinos por WhatsApp</a><br>
     <a href="https://sanisidroseguros.com.ar" style="color:#ffffff80;font-weight:400;font-size:11px;">← Ir al sitio completo</a>
   </div>
 </div>
@@ -141,7 +145,7 @@ const getAnios=()=>{let a=[];for(let y=new Date().getFullYear()+1;y>=1970;y--)a.
 <!-- Cotizador -->
 <script>
 /* ===================== COTIZADOR ONLINE (BETA) — multi-compañía, modo visitante ===================== */
-const CO_WA = '5491151202232';
+const CO_WA = '5491154522619';
 
 // ── COMPAÑÍAS QUE COTIZAN ONLINE ──
 // Para sumar una compañía nueva: armá su proxy (ej. mercantil-cot.js) y agregá una línea acá.
@@ -153,6 +157,26 @@ const CO_CIAS = [
 ];
 
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}
+let _coSearchMode = false;      // true cuando los modelos vienen de la búsqueda en vivo (sin paso de versión)
+let _coModeloMap = null;        // Map: modelo base -> [{n, c, version}] (derivado de VEHIC_PAR para la marca elegida)
+
+// Separa "Integra Ls Sm" -> {modelo:"Integra", version:"Ls Sm"}. El modelo es la primera palabra.
+function coSplitNombre(n){
+  const s = String(n||'').replace(/\s+/g,' ').trim();
+  const i = s.indexOf(' ');
+  if(i < 0) return { modelo: s, version: '' };
+  return { modelo: s.slice(0, i), version: s.slice(i+1) };
+}
+// Agrupa los modelos de una marca de Paraná en modelo base -> versiones
+function coModelosDe(marca){
+  const map = new Map();
+  (VEHIC_PAR[marca] || []).forEach(mod => {
+    const { modelo, version } = coSplitNombre(mod.n);
+    if(!map.has(modelo)) map.set(modelo, []);
+    map.get(modelo).push({ n: mod.n, c: mod.c, version: version || mod.n });
+  });
+  return map;
+}
 
 function coAbrir(){
   const selM = document.getElementById('co_marca');
@@ -164,6 +188,11 @@ function coAbrir(){
     const y0 = new Date().getFullYear()+1;
     for(let y=y0; y>=y0-41; y--){ const o=document.createElement('option'); o.value=y; o.textContent=y; selA.appendChild(o); }
     selA.value = y0-1;
+  }
+  const selN = document.getElementById('co_nacAnio');
+  if(selN && selN.options.length <= 1){
+    const yMax = new Date().getFullYear() - 18; // mínimo 18 años para conducir
+    for(let y=yMax; y>=yMax-77; y--){ const o=document.createElement('option'); o.value=y; o.textContent=y; selN.appendChild(o); }
   }
   coVolver();
   document.getElementById('coError').style.display='none';
@@ -184,19 +213,43 @@ function coViaChange(){
 function coMarcaChange(){
   const marca = document.getElementById('co_marca').value;
   const selMod = document.getElementById('co_modelo');
+  const selVer = document.getElementById('co_version');
+  _coSearchMode = false;
   document.getElementById('co_buscarMsg').style.display='none';
   selMod.innerHTML = '<option value="">Seleccioná…</option>';
-  // Base de Paraná: VEHIC_PAR[marca] = [{n:nombreConVersion, c:codModelo}]
+  selVer.innerHTML = '<option value="">Elegí modelo primero</option>';
+  selVer.disabled = true;
+  // Base de Paraná: VEHIC_PAR[marca] = [{n:modelo+versión, c:codModelo}] → agrupamos por modelo base
   if(marca && typeof VEHIC_PAR !== 'undefined' && VEHIC_PAR[marca]){
-    VEHIC_PAR[marca].forEach(mod=>{
+    _coModeloMap = coModelosDe(marca);
+    [..._coModeloMap.keys()].sort((a,b)=>a.localeCompare(b,'es')).forEach(modelo=>{
       const o=document.createElement('option');
-      o.value = mod.n;                       // el nombre con versión (lo que se manda a Provincia)
-      o.dataset.paranaCod = mod.c;           // código de Paraná, para cuando se integre
-      o.textContent = mod.n;
+      o.value = modelo;
+      o.textContent = modelo;
       selMod.appendChild(o);
     });
     selMod.disabled = false;
-  } else { selMod.disabled = true; }
+  } else { selMod.disabled = true; _coModeloMap = null; }
+}
+
+// Paso 2 → 3: al elegir el modelo, mostramos sus versiones
+function coModeloChange(){
+  if(_coSearchMode) return;
+  const modelo = document.getElementById('co_modelo').value;
+  const selVer = document.getElementById('co_version');
+  selVer.innerHTML = '<option value="">Seleccioná…</option>';
+  if(modelo && _coModeloMap && _coModeloMap.has(modelo)){
+    _coModeloMap.get(modelo).slice()
+      .sort((a,b)=>a.version.localeCompare(b.version,'es',{numeric:true}))
+      .forEach(it=>{
+        const o=document.createElement('option');
+        o.value = it.n;                  // nombre completo (modelo+versión) que se manda a Provincia
+        o.dataset.paranaCod = it.c;      // código de Paraná, para cuando se integre
+        o.textContent = it.version;      // mostramos sólo la versión
+        selVer.appendChild(o);
+      });
+    selVer.disabled = false;
+  } else { selVer.disabled = true; }
 }
 
 function _coErr(m){ const e=document.getElementById('coError'); e.textContent=m; e.style.display='block'; }
@@ -224,6 +277,7 @@ async function coBuscarModelos(){
     const json = await resp.json();
     if(json.error){ btn.disabled=false; return show(json.error,'#c62828'); }
     if(!json.modelos || !json.modelos.length){ btn.disabled=false; return show('Sin modelos para '+marca+' '+anio+'.','#c62828'); }
+    _coSearchMode = true; // los resultados en vivo ya traen modelo+versión: no usamos el paso de versión
     const selMod = document.getElementById('co_modelo');
     selMod.innerHTML = '<option value="">— Elegí el modelo —</option>';
     json.modelos.forEach(m=>{
@@ -232,6 +286,9 @@ async function coBuscarModelos(){
       selMod.appendChild(o);
     });
     selMod.disabled=false;
+    const selVer = document.getElementById('co_version');
+    selVer.innerHTML = '<option value="">No hace falta (búsqueda en vivo)</option>';
+    selVer.disabled = true;
     show('✓ '+json.modelos.length+' modelos encontrados. Elegí el tuyo.','#27ae60');
   }catch(e){ show('No se pudo conectar. Probá de nuevo.','#c62828'); }
   btn.disabled=false;
@@ -241,26 +298,32 @@ async function coCotizar(){
   const nombre = (document.getElementById('co_nombre').value||'').trim();
   const via = document.getElementById('co_via').value;
   const contacto = (document.getElementById('co_contacto').value||'').trim();
-  const nac = document.getElementById('co_nac').value;
+  const nacAnio = document.getElementById('co_nacAnio').value;
+  // La compañía necesita una fecha completa: inventamos el 15 de junio del año elegido.
+  const nac = nacAnio ? (nacAnio + '-06-15') : '';
   const genero = document.getElementById('co_genero').value;
   const marca = document.getElementById('co_marca').value;
   const modeloSel = document.getElementById('co_modelo');
-  const modelo = modeloSel.value;
+  const versionSel = document.getElementById('co_version');
+  // En la base local el dato final está en Versión; en la búsqueda en vivo, en Modelo.
+  const finalSel = _coSearchMode ? modeloSel : versionSel;
+  const modelo = finalSel.value;
   const anio = document.getElementById('co_anio').value;
   const cp = (document.getElementById('co_cp').value||'').replace(/\D/g,'');
   const uso = document.getElementById('co_uso').value;
   const gnc = document.getElementById('co_gnc').value;
   const gnc_monto = gnc==='si' ? (parseInt((document.getElementById('co_gncMonto').value||'').replace(/\D/g,'')) || 0) : 0;
-  const opt = modeloSel.selectedOptions && modeloSel.selectedOptions[0];
+  const opt = finalSel.selectedOptions && finalSel.selectedOptions[0];
   const modeloProvCod = (opt && opt.dataset && opt.dataset.provcod) ? opt.dataset.provcod : '';
 
   document.getElementById('coError').style.display='none';
   if(!nombre){ return _coErr('Ingresá tu nombre.'); }
   if(!contacto){ return _coErr(via==='email'?'Ingresá tu email.':'Ingresá tu WhatsApp.'); }
   if(via==='email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contacto)){ return _coErr('Email inválido.'); }
-  if(!nac){ return _coErr('Ingresá tu fecha de nacimiento.'); }
+  if(!nacAnio){ return _coErr('Elegí tu año de nacimiento.'); }
   if(!marca){ return _coErr('Elegí la marca.'); }
-  if(!modelo){ return _coErr('Elegí el modelo.'); }
+  if(!_coSearchMode && !modeloSel.value){ return _coErr('Elegí el modelo.'); }
+  if(!modelo){ return _coErr(_coSearchMode ? 'Elegí el modelo.' : 'Elegí la versión.'); }
   if(!cp){ return _coErr('Ingresá tu código postal.'); }
 
   const tel = via==='whatsapp' ? contacto.replace(/\D/g,'') : '';
@@ -378,7 +441,7 @@ async function coElegir(i){
     +   'Un <strong>productor matriculado</strong> se va a comunicar con vos a la brevedad para confirmar la cobertura y avanzar con la emisión.'
     + '</div>'
     + '<div style="background:#f6effa;border-radius:10px;padding:12px;font-size:12px;color:#6c3483;line-height:1.5;">'
-    +   '📲 Si no abriste WhatsApp, escribinos al <strong>11 5120-2232</strong> mencionando tu cotización.'
+    +   '📲 Si no abriste WhatsApp, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.'
     + '</div>'
     + '</div>';
   document.getElementById('coResultados').querySelector('button').style.display='none';
