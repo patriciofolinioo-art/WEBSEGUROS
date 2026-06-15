@@ -882,22 +882,40 @@ let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {c
 let _coSearchMode = false;      // true cuando los modelos vienen de la búsqueda en vivo (sin paso de versión)
 let _coModeloMap = null;        // Map: modelo base -> [{n, c, version}] (derivado de VEHIC_PAR para la marca elegida)
 
-// Separa "Integra Ls Sm" -> {modelo:"Integra", version:"Ls Sm"}. El modelo es la primera palabra.
-function coSplitNombre(n){
-  const s = String(n||'').replace(/\s+/g,' ').trim();
-  const i = s.indexOf(' ');
-  if(i < 0) return { modelo: s, version: '' };
-  return { modelo: s.slice(0, i), version: s.slice(i+1) };
-}
-// Agrupa los modelos de una marca de Paraná en modelo base -> versiones
+// Códigos de equipamiento/versión que NO forman parte del nombre del modelo
+const CO_TRIMS = new Set(["GL","GLS","GLX","GLE","GLI","GHIA","GT","GTS","GTI","GTA","GTX","GTZ","LS","LT","LTZ","LX","LXI","EX","EXL","ELX","DX","SE","SEL","SR","SRT","SR5","XL","XLT","XLS","XEI","XLI","XS","XR","RS","RT","RXS","RXE","RXL","SS","ST","STD","DLX","DELUXE","TD","TDI","HDI","CDI","TSI","TFSI","FSI","V6","V8","AT","MT","CVT","AWD","LE","SLE","SLT","CL","CLX","CD","CSX","CSL","LSI","LSX","FULL","BASE","PACK","PLUS","PREMIUM","TITANIUM","TREND","STYLE","ADVANCE","ALLURE","ACTIVE","INTENS","ZEN","LIFE","CONFORT","COMFORTLINE","TRENDLINE","HIGHLINE","SPORTLINE","BLUEMOTION","EXCLUSIVE","LIMITED","LAREDO","DIPLOMATA","START","CONMUTER","COMMUTER","DIESEL","NAFTA","VIKING","OLSON"]);
+
+// Agrupa la base de Paraná en modelo base -> versiones.
+// El modelo es la primera palabra; se extiende a las siguientes SOLO si son comunes
+// a todas las versiones del grupo y no son un dato técnico (cilindrada) ni un código de equipamiento.
+// Así "Land Cruiser", "Eco Sport", "Grand Vitara", "Santa Fe" quedan como un solo modelo.
 function coModelosDe(marca){
-  const map = new Map();
-  (VEHIC_PAR[marca] || []).forEach(mod => {
-    const { modelo, version } = coSplitNombre(mod.n);
-    if(!map.has(modelo)) map.set(modelo, []);
-    map.get(modelo).push({ n: mod.n, c: mod.c, version: version || mod.n });
-  });
-  return map;
+  const entries = (VEHIC_PAR[marca] || []).map(mod => ({
+    n: mod.n, c: mod.c, toks: String(mod.n).replace(/\s+/g,' ').trim().split(' ')
+  }));
+  const byFirst = new Map();
+  entries.forEach(e => { const k = e.toks[0] || e.n; if(!byFirst.has(k)) byFirst.set(k, []); byFirst.get(k).push(e); });
+  const result = new Map();
+  for(const [, group] of byFirst){
+    let depth = 1;
+    while(depth <= 3){
+      const tkAt = group.map(e => e.toks[depth]);
+      const t0 = tkAt[0];
+      if(t0 == null) break;                              // alguna versión no tiene más palabras
+      if(/\d/.test(t0)) break;                           // cilindrada/versión (1.6, 16v, v6…)
+      if(t0.length < 2) break;                           // letra suelta = trim
+      if(CO_TRIMS.has(t0.toUpperCase())) break;          // código de equipamiento
+      if(!tkAt.every(t => t != null && t.toLowerCase() === t0.toLowerCase())) break;
+      depth++;
+    }
+    group.forEach(e => {
+      const modelo = e.toks.slice(0, depth).join(' ');
+      const version = e.toks.slice(depth).join(' ') || modelo;
+      if(!result.has(modelo)) result.set(modelo, []);
+      result.get(modelo).push({ n: e.n, c: e.c, version });
+    });
+  }
+  return result;
 }
 
 function coAbrir(){
