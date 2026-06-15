@@ -1,0 +1,14 @@
+[build]
+  functions = "netlify/functions"
+
+# /cotizar muestra la página del cotizador (sin el .html en la URL)
+[[redirects]]
+  from = "/cotizar"
+  to = "/cotizar.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type"
