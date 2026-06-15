@@ -16,6 +16,10 @@ const API_KEY     = '84630d93-d8c2-40b3-ad3d-b82773c092b5';
 const CLIENT_ID   = 'ps2';
 const CLIENT_SECRET = 'a0ab7e18-baea-4d38-b22e-f61184960745';
 
+// Bonificación / descuento que aplica el productor, igual al que se carga en el portal PS2.
+// El portal usa 25% de descuento (con 20% de comisión). Si cambia el descuento, editar acá.
+const BONIF_ADICIONAL = 25;
+
 // Mapa de marcas conocidas nombre → código Provincia
 const MARCA_MAP = {
   'Toyota':'TOY','Volkswagen':'VOL','Ford':'FOR','Chevrolet':'CHE','Renault':'REN',
@@ -113,7 +117,7 @@ function construirPayload(datos, marcaCod, modeloCod) {
       "900008_codPostal": Number(datos.cp) || 1642,
       "40086_genero": (datos.genero === 'F' ? 'F' : 'M'),
       "40550_clausulaAjuste":10,
-      "40088_bonifAdicional":1,
+      "40088_bonifAdicional": BONIF_ADICIONAL,
       "40102_limiteResponsabilidadCivil":0,
       // GNC: el monto del equipo va como accesorio del vehículo (afecta la prima).
       "montoAccesorios": Number(datos.gnc_monto) || 0,
