@@ -1,2 +1,3 @@
 # Artefactos de deploy generados localmente
+*.zip
 webseguros-deploy.zip
