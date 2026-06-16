@@ -6,8 +6,14 @@
 //      { ok:true, opciones:[{ plan, cobertura, premio, suma }] }  ó  { error }
 //  para que el cotizador del front (CO_CIAS) sume Mercantil junto a Provincia.
 //
-//  API: api-cotiza-auto v2  (OpenAPI provisto por Mercantil)
-//  Base DEV: https://apidev.mercantilandina.com.ar/cotizaciones/v2
+//  Flujo:
+//    1) login (basic auth) → token
+//    2) api-vehiculos: buscar el auto por texto+año → código de vehículo de Mercantil
+//    3) api-cotiza-auto: POST /auto con vehiculo.id → premios por cobertura
+//
+//  APIs (ambiente DEV):
+//    Cotización: https://apidev.mercantilandina.com.ar/cotizaciones/v2
+//    Vehículos:  https://apidev.mercantilandina.com.ar/vehiculos/v1
 //
 //  ⚠️ SEGURIDAD: credenciales en variables de entorno de Netlify, nunca acá.
 //  Configurar en Netlify → Site settings → Environment variables:
@@ -18,15 +24,15 @@
 //      MERCANTIL_PRODUCTOR   = (id de productor, ej. 87165)
 // ============================================================================
 
-// Base de la API de cotización. Cambiar a producción cuando esté lista.
-const BASE        = 'https://apidev.mercantilandina.com.ar/cotizaciones/v2';
-const COTIZAR_URL = BASE + '/auto';
-// URL del login (basic auth → token). Se toma de env; dejamos un default por las dudas.
-const LOGIN_URL   = process.env.MERCANTIL_LOGIN_URL || 'https://apidev.mercantilandina.com.ar/auth/v1/login';
+const HOST       = 'https://apidev.mercantilandina.com.ar';
+const COT_BASE   = HOST + '/cotizaciones/v2';
+const VEH_BASE   = HOST + '/vehiculos/v1';
+const COTIZAR_URL = COT_BASE + '/auto';
+const LOGIN_URL  = process.env.MERCANTIL_LOGIN_URL || (HOST + '/auth/v1/login');
 
 // ── Parámetros comerciales (igual que en el portal) ──
 const COMISION     = 20; // % de comisión del productor (se mantiene en 20)
-const BONIFICACION = 25; // % de descuento/bonificación que aplica el productor (igual al portal)
+const BONIFICACION = 25; // % de descuento/bonificación que aplica el productor
 
 // Uso del vehículo en Mercantil: 1 = Particular (por defecto)
 const USO_PARTICULAR = 1;
@@ -39,7 +45,6 @@ async function getToken() {
   if (!user || !pass) throw new Error('Credenciales Mercantil no configuradas (MERCANTIL_USER / MERCANTIL_PASS).');
   if (!sub) throw new Error('Falta MERCANTIL_SUBKEY (Ocp-Apim-Subscription-Key).');
 
-  // Login con Basic Auth → token. La API indica: "Token generado con login con método basic auth".
   const basic = Buffer.from(user + ':' + pass).toString('base64');
   const resp = await fetch(LOGIN_URL, {
     method: 'POST',
@@ -53,7 +58,6 @@ async function getToken() {
     const txt = await resp.text().catch(() => '');
     throw new Error('Login Mercantil falló (' + resp.status + '). ' + txt.slice(0, 160));
   }
-  // El token puede venir como texto plano o dentro de un JSON. Contemplamos ambos.
   const raw = await resp.text();
   let token = '';
   try {
@@ -66,12 +70,28 @@ async function getToken() {
   return token.replace(/^Bearer\s+/i, '');
 }
 
-function construirPayload(datos, infoauto) {
+// Busca el auto por texto + año y devuelve el código de vehículo de Mercantil.
+// Usa GET /vehiculos/v1/?q=...&anio=...&tipo=AUTO
+async function buscarVehiculoId(token, texto, anio) {
+  const sub = process.env.MERCANTIL_SUBKEY;
+  const url = VEH_BASE + '/?q=' + encodeURIComponent(texto) + '&anio=' + encodeURIComponent(anio) + '&tipo=AUTO&limit=10';
+  const resp = await fetch(url, {
+    headers: { 'Authorization': 'Bearer ' + token, 'Ocp-Apim-Subscription-Key': sub }
+  });
+  if (!resp.ok) return null;
+  let json;
+  try { json = JSON.parse(await resp.text()); } catch (e) { return null; }
+  const datos = (json && json.datos) || [];
+  if (!datos.length) return null;
+  return datos[0].codigo; // primer match
+}
+
+function construirPayload(datos, vehiculoId) {
   const uso = datos.uso === 'comercial' ? USO_COMERCIAL : USO_PARTICULAR;
   return {
     "localidad": { "codigo_postal": Number(datos.cp) || 1642 },
     "vehiculo": {
-      "infoauto": Number(infoauto),
+      "id": Number(vehiculoId),
       "anio": Number(datos.anio) || new Date().getFullYear(),
       "uso": uso,
       "gnc": datos.gnc === 'si',
@@ -118,20 +138,28 @@ exports.handler = async function(event) {
 
   try {
     const datos = JSON.parse(event.body || '{}');
-
-    // Mercantil identifica el vehículo por código INFOAUTO (no por la base de Paraná).
-    // El front debe mandar datos.infoauto. Si no viene, no podemos cotizar en Mercantil.
-    const infoauto = datos.infoauto || datos.infoAuto || datos.codInfoauto;
-    if (!infoauto) {
-      return { statusCode: 200, headers, body: JSON.stringify({ error: 'Falta código Infoauto del vehículo para Mercantil.' }) };
-    }
     if (!datos.anio || !datos.cp) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Faltan datos (año o código postal).' }) };
     }
 
-    const token   = await getToken();
-    const payload = construirPayload(datos, infoauto);
+    const token = await getToken();
 
+    // Identificar el vehículo en Mercantil:
+    //  - si el front ya manda un id/infoauto, lo usamos;
+    //  - si no, buscamos por nombre (marca + modelo) + año.
+    let vehiculoId = datos.mercantilId || datos.vehiculoId || null;
+    if (!vehiculoId) {
+      const texto = [datos.marca, datos.modelo].filter(Boolean).join(' ').trim();
+      if (!texto) {
+        return { statusCode: 200, headers, body: JSON.stringify({ error: 'Falta el vehículo (marca y modelo).' }) };
+      }
+      vehiculoId = await buscarVehiculoId(token, texto, datos.anio);
+      if (!vehiculoId) {
+        return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se encontró el vehículo en Mercantil.' }) };
+      }
+    }
+
+    const payload = construirPayload(datos, vehiculoId);
     const resp = await fetch(COTIZAR_URL, {
       method: 'POST',
       headers: {
@@ -144,7 +172,7 @@ exports.handler = async function(event) {
 
     const txt = await resp.text();
     if (!resp.ok) {
-      // Errores controlados de Mercantil vienen con HTTP 409 y { errores:[{mensaje_error}] }
+      // Errores controlados de Mercantil: HTTP 409 con { errores:[{mensaje_error}] }
       let msg = 'No se pudo cotizar en Mercantil.';
       try { const j = JSON.parse(txt); if (j.errores && j.errores[0]) msg = j.errores[0].mensaje_error || j.errores[0].mensaje || msg; } catch(e) {}
       return { statusCode: 200, headers, body: JSON.stringify({ error: msg, httpStatus: resp.status }) };

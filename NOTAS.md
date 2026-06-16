@@ -37,10 +37,20 @@
       Posible causa de diferencia: la web manda `40220_ValorDelVehiculo` en 0 (no se pide
       suma asegurada), y Provincia usa su valuación por defecto.
 
-- [ ] **Sumar más compañías** al cotizador: en `CO_CIAS` (index.html y cotizar.html) se
-      agrega una línea por compañía nueva, y se crea su proxy en `netlify/functions/`
-      (ej. `mercantil-cot.js`) que devuelva `{ opciones:[{plan,cobertura,premio}] }` igual
-      que provincia-cot. Después definir cómo aplica descuentos cada una.
+- [x] **Mercantil Andina agregada** al cotizador (`mercantil-cot.js` + línea en `CO_CIAS`).
+      Flujo: login (basic auth) → busca el vehículo en api-vehiculos por nombre+año →
+      cotiza en api-cotiza-auto con `vehiculo.id`. comision=20, bonificacion=25.
+      **Falta para que funcione en vivo:**
+      - [ ] Confirmar la URL real del **login** (token). Hoy asume `…/auth/v1/login`
+            (variable `MERCANTIL_LOGIN_URL`).
+      - [ ] Cargar variables de entorno en Netlify: `MERCANTIL_USER`, `MERCANTIL_PASS`,
+            `MERCANTIL_SUBKEY` (Ocp-Apim-Subscription-Key), `MERCANTIL_PRODUCTOR` (id PAS).
+      - [ ] Está apuntando a **DEV** (`apidev.mercantilandina.com.ar`). Pasar a producción
+            cuando esté ok (constante `HOST` en `mercantil-cot.js`).
+      - [ ] Confirmar código de **uso comercial** (`USO_COMERCIAL`, hoy 2).
+
+- [ ] **Sumar más compañías**: misma receta — línea en `CO_CIAS` + proxy en
+      `netlify/functions/` que devuelva `{ opciones:[{plan,cobertura,premio,suma}] }`.
 
 ## 🔐 Seguridad (a revisar cuando se pueda)
 

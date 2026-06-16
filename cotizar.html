@@ -152,8 +152,7 @@ const CO_WA = '5491154522619';
 // El proxy debe devolver { opciones:[{plan,cobertura,premio}], error? } igual que provincia-cot.
 const CO_CIAS = [
   { id:'provincia', nombre:'Provincia Seguros', proxy:'/.netlify/functions/provincia-cot', color:'#8e44ad', soportaBuscarModelo:true }
-  // Ejemplo para el futuro (descomentar y crear el proxy):
-  // ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
+  ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
 ];
 
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}
