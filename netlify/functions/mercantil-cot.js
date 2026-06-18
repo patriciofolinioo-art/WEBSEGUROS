@@ -1,188 +1,181 @@
-// ============================================================================
-//  mercantil-cot.js  ·  Netlify Function para la WEB PÚBLICA
-//  Cotizador online de Mercantil Andina (solo cotización, NO emisión)
-//
-//  Devuelve el MISMO formato que provincia-cot:
-//      { ok:true, opciones:[{ plan, cobertura, premio, suma }] }  ó  { error }
-//  para que el cotizador del front (CO_CIAS) sume Mercantil junto a Provincia.
-//
-//  Flujo:
-//    1) login (basic auth) → token
-//    2) api-vehiculos: buscar el auto por texto+año → código de vehículo de Mercantil
-//    3) api-cotiza-auto: POST /auto con vehiculo.id → premios por cobertura
-//
-//  APIs (ambiente DEV):
-//    Cotización: https://apidev.mercantilandina.com.ar/cotizaciones/v2
-//    Vehículos:  https://apidev.mercantilandina.com.ar/vehiculos/v1
-//
-//  ⚠️ SEGURIDAD: credenciales en variables de entorno de Netlify, nunca acá.
-//  Configurar en Netlify → Site settings → Environment variables:
-//      MERCANTIL_LOGIN_URL   = (URL del login que devuelve el token)  ← CONFIRMAR
-//      MERCANTIL_USER        = (usuario para el login basic auth)
-//      MERCANTIL_PASS        = (contraseña para el login basic auth)
-//      MERCANTIL_SUBKEY      = (Ocp-Apim-Subscription-Key del producto)
-//      MERCANTIL_PRODUCTOR   = (id de productor, ej. 87165)
-// ============================================================================
+// ===================== PROXY MERCANTIL ANDINA — Cotizador online =====================
+// Recibe el mismo _coDat que manda cotizar.html (nombre, marca, modelo, anio, cp, uso, tel,
+// email, via, contacto, modeloProvCod, gnc, gnc_monto, nac, genero) y devuelve
+// { opciones:[{plan,cobertura,premio,suma}], error? } — mismo contrato que provincia-cot.js.
 
-const HOST       = 'https://apidev.mercantilandina.com.ar';
-const COT_BASE   = HOST + '/cotizaciones/v2';
-const VEH_BASE   = HOST + '/vehiculos/v1';
-const COTIZAR_URL = COT_BASE + '/auto';
-const LOGIN_URL  = process.env.MERCANTIL_LOGIN_URL || (HOST + '/auth/v1/login');
+const BASE_URL = 'https://apidev.mercantilandina.com.ar';
 
-// ── Parámetros comerciales (igual que en el portal) ──
-const COMISION     = 20; // % de comisión del productor (se mantiene en 20)
-const BONIFICACION = 25; // % de descuento/bonificación que aplica el productor
+// ── TODO: completar cuando tengas la posta de cada uno ──
+const MA_RAMA      = 0;   // TODO: código de rama "Automotor"
+const MA_CANAL     = 0;   // TODO: código de tu canal (PAS web / online)
+const MA_PRODUCTOR = { id: 0, nombre: '' }; // TODO: tu código de productor con Mercantil Andina
+const MA_COMISION    = 0; // TODO: valor por defecto si no aplica
+const MA_BONIFICACION = 0; // TODO: valor por defecto si no aplica
 
-// Uso del vehículo en Mercantil: 1 = Particular (por defecto)
-const USO_PARTICULAR = 1;
-const USO_COMERCIAL  = 2; // ← CONFIRMAR código real de uso comercial
+// TODO: confirmar el header/esquema real de auth (¿Bearer token? ¿Ocp-Apim-Subscription-Key
+// tipo Azure API Management, que es lo que usa el portal de Mercantil Andina?)
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    // 'Authorization': 'Bearer ' + process.env.MERCANTIL_TOKEN,
+    // 'Ocp-Apim-Subscription-Key': process.env.MERCANTIL_SUBSCRIPTION_KEY,
+  };
+}
 
-async function getToken() {
-  const user = process.env.MERCANTIL_USER;
-  const pass = process.env.MERCANTIL_PASS;
-  const sub  = process.env.MERCANTIL_SUBKEY;
-  if (!user || !pass) throw new Error('Credenciales Mercantil no configuradas (MERCANTIL_USER / MERCANTIL_PASS).');
-  if (!sub) throw new Error('Falta MERCANTIL_SUBKEY (Ocp-Apim-Subscription-Key).');
+// TODO: mapear código de uso del form (co_uso) al código numérico que pide Mercantil Andina
+function mapUso(uso) {
+  const TABLA_USO = {
+    // 'particular': 1,
+    // 'comercial': 2,
+  };
+  return TABLA_USO[uso] ?? 0;
+}
 
-  const basic = Buffer.from(user + ':' + pass).toString('base64');
-  const resp = await fetch(LOGIN_URL, {
+// Busca el código de vehículo de Mercantil Andina por texto libre + año.
+// Devuelve el primer match razonable, priorizando coincidencia de texto contra `nombre`
+// y, si hay GNC, un resultado cuyo nombre lo mencione (heurística — confirmar con la
+// tabla real de `propulsion` cuando la tengas).
+// TODO: confirmar que el `codigo` que devuelve este endpoint es lo que va en
+// vehiculo.infoauto del payload de cotización (y no en vehiculo.id).
+async function buscarCodigoVehiculo(marca, modelo, anio, gnc) {
+  const q = (marca + ' ' + modelo).trim();
+  const url = BASE_URL + '/vehiculos/v1/?q=' + encodeURIComponent(q) + '&anio=' + encodeURIComponent(anio);
+  const resp = await fetch(url, { method: 'GET', headers: authHeaders() });
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error('Búsqueda de vehículo HTTP ' + resp.status + ' ' + txt.slice(0, 200));
+  }
+  const json = await resp.json();
+  const datos = (json && json.datos) || [];
+  if (!datos.length) return null;
+
+  // 1) match exacto de nombre (sin distinguir mayúsculas)
+  const qLower = q.toLowerCase();
+  let candidatos = datos;
+  if (gnc) {
+    const conGnc = datos.filter(d => /gnc/i.test(d.nombre || ''));
+    if (conGnc.length) candidatos = conGnc;
+  }
+  const exacto = candidatos.find(d => (d.nombre || '').toLowerCase() === qLower);
+  if (exacto) return exacto.codigo;
+
+  // 2) el que más palabras de la búsqueda contenga
+  const tokens = qLower.split(/\s+/).filter(Boolean);
+  let mejor = candidatos[0], mejorScore = -1;
+  candidatos.forEach(d => {
+    const nom = (d.nombre || '').toLowerCase();
+    const score = tokens.reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0);
+    if (score > mejorScore) { mejorScore = score; mejor = d; }
+  });
+  return mejor ? mejor.codigo : null;
+}
+
+async function crearCotizacion(payload) {
+  const resp = await fetch(BASE_URL + '/cotizaciones/v2', {
     method: 'POST',
-    headers: {
-      'Authorization': 'Basic ' + basic,
-      'Ocp-Apim-Subscription-Key': sub,
-      'Content-Type': 'application/json'
-    }
+    headers: authHeaders(),
+    body: JSON.stringify(payload)
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
-    throw new Error('Login Mercantil falló (' + resp.status + '). ' + txt.slice(0, 160));
+    throw new Error('HTTP ' + resp.status + ' ' + txt.slice(0, 200));
   }
-  const raw = await resp.text();
-  let token = '';
-  try {
-    const j = JSON.parse(raw);
-    token = j.token || j.access_token || j.accessToken || j.jwt || j.id_token || '';
-  } catch (e) {
-    token = raw.trim(); // respuesta en texto plano
+  return resp.json();
+}
+
+// TODO: confirmar si esto hace falta. Si el POST ya devuelve `resultado` resuelto en la misma
+// respuesta, esta función no se usa. Si el POST solo da un `id` y hay que consultarlo aparte,
+// se usa para el GET /cotizaciones/v2/{id}.
+async function consultarCotizacion(id) {
+  const resp = await fetch(BASE_URL + '/cotizaciones/v2/' + id, {
+    method: 'GET',
+    headers: authHeaders()
+  });
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error('HTTP ' + resp.status + ' ' + txt.slice(0, 200));
   }
-  if (!token) throw new Error('No se obtuvo token de Mercantil.');
-  return token.replace(/^Bearer\s+/i, '');
+  return resp.json();
 }
 
-// Busca el auto por texto + año y devuelve el código de vehículo de Mercantil.
-// Usa GET /vehiculos/v1/?q=...&anio=...&tipo=AUTO
-async function buscarVehiculoId(token, texto, anio) {
-  const sub = process.env.MERCANTIL_SUBKEY;
-  const url = VEH_BASE + '/?q=' + encodeURIComponent(texto) + '&anio=' + encodeURIComponent(anio) + '&tipo=AUTO&limit=10';
-  const resp = await fetch(url, {
-    headers: { 'Authorization': 'Bearer ' + token, 'Ocp-Apim-Subscription-Key': sub }
-  });
-  if (!resp.ok) return null;
-  let json;
-  try { json = JSON.parse(await resp.text()); } catch (e) { return null; }
-  const datos = (json && json.datos) || [];
-  if (!datos.length) return null;
-  return datos[0].codigo; // primer match
-}
-
-function construirPayload(datos, vehiculoId) {
-  const uso = datos.uso === 'comercial' ? USO_COMERCIAL : USO_PARTICULAR;
-  return {
-    "localidad": { "codigo_postal": Number(datos.cp) || 1642 },
-    "vehiculo": {
-      "id": Number(vehiculoId),
-      "anio": Number(datos.anio) || new Date().getFullYear(),
-      "uso": uso,
-      "gnc": datos.gnc === 'si',
-      "rastreo": 0
-    },
-    "comision": COMISION,
-    "bonificacion": BONIFICACION,
-    "periodo": 1,
-    "cuotas": 1,
-    "pago": { "tipo_pago": "D" },
-    "iva": 5,            // 5 = Consumidor Final
-    "desglose": true,
-    "productor": { "id": Number(process.env.MERCANTIL_PRODUCTOR) || 0 }
-  };
-}
-
-// Convierte el resultado de Mercantil al formato del cotizador
-function parsearResultado(cotData) {
-  const sumaVeh = Number(cotData.suma_asegurada) || (cotData.vehiculo && Number(cotData.vehiculo.valor)) || 0;
-  const opciones = [];
-  (cotData.resultado || []).forEach(item => {
-    if (item.error) return;                 // cobertura no cotizable
-    const premio = Number(item.desglose && item.desglose.total && item.desglose.total.premio) || Number(item.costo) || 0;
-    if (premio <= 0) return;
-    opciones.push({
-      plan: item.producto || '',
-      cobertura: item.titulo || item.descripcion || item.texto || '',
-      premio,
-      suma: sumaVeh
-    });
-  });
-  opciones.sort((a, b) => a.premio - b.premio);
-  return opciones;
-}
-
-exports.handler = async function(event) {
+exports.handler = async function (event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-  if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
+  }
+
+  let dat;
+  try {
+    dat = JSON.parse(event.body || '{}');
+  } catch (e) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body inválido' }) };
+  }
 
   try {
-    const datos = JSON.parse(event.body || '{}');
-    if (!datos.anio || !datos.cp) {
-      return { statusCode: 200, headers, body: JSON.stringify({ error: 'Faltan datos (año o código postal).' }) };
+    const codVeh = await buscarCodigoVehiculo(dat.marca, dat.modelo, dat.anio, dat.gnc === 'si');
+    if (codVeh == null) {
+      return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se encontró el vehículo en Mercantil Andina', opciones: [] }) };
     }
 
-    const token = await getToken();
-
-    // Identificar el vehículo en Mercantil:
-    //  - si el front ya manda un id/infoauto, lo usamos;
-    //  - si no, buscamos por nombre (marca + modelo) + año.
-    let vehiculoId = datos.mercantilId || datos.vehiculoId || null;
-    if (!vehiculoId) {
-      const texto = [datos.marca, datos.modelo].filter(Boolean).join(' ').trim();
-      if (!texto) {
-        return { statusCode: 200, headers, body: JSON.stringify({ error: 'Falta el vehículo (marca y modelo).' }) };
-      }
-      vehiculoId = await buscarVehiculoId(token, texto, datos.anio);
-      if (!vehiculoId) {
-        return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se encontró el vehículo en Mercantil.' }) };
-      }
-    }
-
-    const payload = construirPayload(datos, vehiculoId);
-    const resp = await fetch(COTIZAR_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token,
-        'Ocp-Apim-Subscription-Key': process.env.MERCANTIL_SUBKEY
+    const payload = {
+      id: 0,
+      rama: MA_RAMA,
+      canal: MA_CANAL,
+      localidad: {
+        id: 0,
+        codigo_postal: parseInt(dat.cp) || 0,
+        nombre: '',      // TODO: ¿hace falta resolver nombre/provincia por CP, o el código postal solo alcanza?
+        provincia: ''
       },
-      body: JSON.stringify(payload)
-    });
+      vehiculo: {
+        id: 0,
+        infoauto: codVeh,
+        nombre: dat.marca + ' ' + dat.modelo,
+        anio: parseInt(dat.anio) || 0,
+        uso: mapUso(dat.uso),
+        gnc: dat.gnc === 'si',
+        valor: 0,    // TODO: ¿lo calcula la compañía a partir de infoauto, o hay que mandar la suma asegurada?
+        rastreo: 0   // TODO: código si tiene/no tiene rastreo satelital
+      },
+      periodo: 0,     // TODO: código de periodicidad (¿mensual/anual?)
+      cuotas: 1,      // TODO: cantidad de cuotas default
+      comision: MA_COMISION,
+      bonificacion: MA_BONIFICACION,
+      productor: MA_PRODUCTOR,
+      fecha: new Date().toISOString().slice(0, 10),
+      cantidad: 0
+    };
 
-    const txt = await resp.text();
-    if (!resp.ok) {
-      // Errores controlados de Mercantil: HTTP 409 con { errores:[{mensaje_error}] }
-      let msg = 'No se pudo cotizar en Mercantil.';
-      try { const j = JSON.parse(txt); if (j.errores && j.errores[0]) msg = j.errores[0].mensaje_error || j.errores[0].mensaje || msg; } catch(e) {}
-      return { statusCode: 200, headers, body: JSON.stringify({ error: msg, httpStatus: resp.status }) };
+    let resultado = await crearCotizacion(payload);
+
+    // TODO: descomentar si el flujo real requiere un segundo GET por id
+    // if (resultado && resultado.id && (!resultado.resultado || !resultado.resultado.length)) {
+    //   resultado = await consultarCotizacion(resultado.id);
+    // }
+
+    const items = (resultado && resultado.resultado) || [];
+    const opciones = items
+      .filter(it => !it.error && it.costo)
+      .map(it => ({
+        plan: it.producto || it.titulo || '',
+        cobertura: it.titulo || it.descripcion || '',
+        premio: (it.desglose && it.desglose.total && it.desglose.total.premio) || it.costo || 0,
+        suma: 0 // TODO: confirmar si la API devuelve suma asegurada en algún campo
+      }));
+
+    if (!opciones.length) {
+      return { statusCode: 200, headers, body: JSON.stringify({ error: 'Sin opciones para este vehículo', opciones: [] }) };
     }
 
-    const cotData = JSON.parse(txt);
-    const opciones = parsearResultado(cotData);
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, cotId: cotData.id || '', opciones }) };
-
+    return { statusCode: 200, headers, body: JSON.stringify({ opciones }) };
   } catch (e) {
-    return { statusCode: 200, headers, body: JSON.stringify({ error: e.message || 'Error inesperado' }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se pudo cotizar con Mercantil Andina: ' + e.message, opciones: [] }) };
   }
 };
