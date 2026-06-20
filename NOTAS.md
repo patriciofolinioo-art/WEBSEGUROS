@@ -49,8 +49,26 @@
             cuando esté ok (constante `HOST` en `mercantil-cot.js`).
       - [ ] Confirmar código de **uso comercial** (`USO_COMERCIAL`, hoy 2).
 
+- [x] **Digna Seguros agregada** (`digna-cot.js` + `infoauto.json` + línea en `CO_CIAS`,
+      color naranja). Resuelve el vehículo 100% local contra `infoauto.json` (códigos
+      InfoAuto). Descuento 30% (códigos 29+25). 99/102 marcas de Paraná matchean con
+      infoauto (no matchean: Land Rover, I.k.a., Jac).
+      **Falta para que funcione en vivo:** variables de entorno en Netlify
+      `DIGNA_USER`, `DIGNA_PASS`, `DIGNA_BASE_URL` (testing/desarrollo), y confirmar
+      `DIGNA_COD_PRODUCTOR`. Hoy apunta a testing (`equiswebtest.digna.seg.ar`).
+
+- [x] **Filtro de versiones por año** en el cotizador (`coExtraerAnioVersion` +
+      `coAnioChange`): al elegir año, oculta versiones cuyo tag "L/XX" es posterior.
+      ⚠️ El zip original venía con un BUG (faltaba `function coModeloChange(){`) que rompía
+      TODO el cotizador — se corrigió y se conectó el filtro en ambos archivos.
+
 - [ ] **Sumar más compañías**: misma receta — línea en `CO_CIAS` + proxy en
       `netlify/functions/` que devuelva `{ opciones:[{plan,cobertura,premio,suma}] }`.
+
+## 🔑 Variables de entorno por compañía (Netlify → Environment variables)
+- **Provincia**: `PROVINCIA_USER`, `PROVINCIA_PASS`
+- **Mercantil**: `MERCANTIL_USER`, `MERCANTIL_PASS`, `MERCANTIL_SUBKEY`, `MERCANTIL_PRODUCTOR`, `MERCANTIL_LOGIN_URL`
+- **Digna**: `DIGNA_USER`, `DIGNA_PASS`, `DIGNA_BASE_URL`, `DIGNA_COD_PRODUCTOR`
 
 ## 🔐 Seguridad (a revisar cuando se pueda)
 

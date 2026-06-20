@@ -278,7 +278,7 @@
           <div style="display:flex;gap:10px;">
             <div style="flex:1;">
               <label class=co-lbl>Año *</label>
-              <select id=co_anio class=co-inp></select>
+              <select id=co_anio class=co-inp onchange="coAnioChange()"></select>
             </div>
             <div style="flex:1;">
               <label class=co-lbl>Código postal *</label>
@@ -875,6 +875,7 @@ const CO_WA = '5491154522619';
 const CO_CIAS = [
   { id:'provincia', nombre:'Provincia Seguros', proxy:'/.netlify/functions/provincia-cot', color:'#8e44ad', soportaBuscarModelo:true }
   ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
+  ,{ id:'digna', nombre:'Digna Seguros', proxy:'/.netlify/functions/digna-cot', color:'#ff6600', soportaBuscarModelo:false }
 ];
 
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}
@@ -972,13 +973,39 @@ function coMarcaChange(){
 }
 
 // Paso 2 → 3: al elegir el modelo, mostramos sus versiones
+// Extrae el año "L/XX" o "L/XXXX" del nombre de una versión, si lo tiene.
+// El tag marca el año en que arrancó esa línea/generación (no hasta cuándo se vendió).
+// Filtro conservador: solo descarta versiones cuyo tag es POSTERIOR al año elegido.
+function coExtraerAnioVersion(texto){
+  if(!texto) return null;
+  const m = texto.match(/L\/?\s*(\d{2,4})\b/i);
+  if(!m) return null;
+  let y = parseInt(m[1],10);
+  if(m[1].length<=2) y = (y<=50 ? 2000+y : 1900+y);
+  return y;
+}
+
+// Al cambiar el año, si ya hay un modelo elegido, volvemos a filtrar las versiones.
+function coAnioChange(){
+  if(_coSearchMode) return;
+  const modelo = document.getElementById('co_modelo').value;
+  if(modelo) coModeloChange();
+}
+
+// Paso 2 → 3: al elegir el modelo, mostramos sus versiones (filtradas por año si tienen tag L/XX)
 function coModeloChange(){
   if(_coSearchMode) return;
   const modelo = document.getElementById('co_modelo').value;
+  const anioSel = parseInt(document.getElementById('co_anio').value,10) || null;
   const selVer = document.getElementById('co_version');
   selVer.innerHTML = '<option value="">Seleccioná…</option>';
   if(modelo && _coModeloMap && _coModeloMap.has(modelo)){
     _coModeloMap.get(modelo).slice()
+      .filter(it=>{
+        if(!anioSel) return true;
+        const ay = coExtraerAnioVersion(it.version) || coExtraerAnioVersion(it.n);
+        return !ay || ay <= anioSel; // descarta solo versiones con tag POSTERIOR al año elegido
+      })
       .sort((a,b)=>a.version.localeCompare(b.version,'es',{numeric:true}))
       .forEach(it=>{
         const o=document.createElement('option');
