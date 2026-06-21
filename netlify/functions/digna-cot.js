@@ -197,9 +197,9 @@ exports.handler = async function (event) {
       codigoPostal: parseInt(dat.cp, 10),
       idTarifa: idTarifa,
       idPersonaTipo: ID_PERSONA_TIPO,
-      idSexo: dat.genero === 'femenino' ? 2 : 1, // TODO: confirmar el valor exacto que manda co_genero
+      idSexo: dat.genero === 'F' ? 2 : 1, // 1=Hombre, 2=Mujer (co_genero manda M/F/X)
       entidadPublica: false,
-      fechaNacimiento: dat.nac || '1990-01-01',  // TODO: confirmar formato real de co_nac
+      fechaNacimiento: dat.nac || '1990-01-01',  // co_nac llega como "AAAA-06-15" (YYYY-MM-DD) ✓
       idCondicionFiscal: ID_CONDICION_FISCAL,
       solicitante: dat.nombre || 'Cliente Web',
       idFormaCobro: ID_FORMA_COBRO,
