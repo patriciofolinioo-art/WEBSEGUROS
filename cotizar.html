@@ -157,6 +157,8 @@ const CO_CIAS = [
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}
 let _coSearchMode = false;      // true cuando los modelos vienen de la búsqueda en vivo (sin paso de versión)
 let _coModeloMap = null;        // Map: modelo base -> [{n, c, version}] (derivado de VEHIC_PAR para la marca elegida)
+let _coCacheProv = {};          // cache de versiones de Provincia por "marca|anio" (null = sin datos)
+let _coVerReq = 0;              // anti-carrera para la carga async de versiones
 
 // Códigos de equipamiento/versión que NO forman parte del nombre del modelo
 const CO_TRIMS = new Set(["GL","GLS","GLX","GLE","GLI","GHIA","GT","GTS","GTI","GTA","GTX","GTZ","LS","LT","LTZ","LX","LXI","EX","EXL","ELX","DX","SE","SEL","SR","SRT","SR5","XL","XLT","XLS","XEI","XLI","XS","XR","RS","RT","RXS","RXE","RXL","SS","ST","STD","DLX","DELUXE","TD","TDI","HDI","CDI","TSI","TFSI","FSI","V6","V8","AT","MT","CVT","AWD","LE","SLE","SLT","CL","CLX","CD","CSX","CSL","LSI","LSX","FULL","BASE","PACK","PLUS","PREMIUM","TITANIUM","TREND","STYLE","ADVANCE","ALLURE","ACTIVE","INTENS","ZEN","LIFE","CONFORT","COMFORTLINE","TRENDLINE","HIGHLINE","SPORTLINE","BLUEMOTION","EXCLUSIVE","LIMITED","LAREDO","DIPLOMATA","START","CONMUTER","COMMUTER","DIESEL","NAFTA","VIKING","OLSON"]);
@@ -165,9 +167,13 @@ const CO_TRIMS = new Set(["GL","GLS","GLX","GLE","GLI","GHIA","GT","GTS","GTI","
 // El modelo es la primera palabra; se extiende a las siguientes SOLO si son comunes
 // a todas las versiones del grupo y no son un dato técnico (cilindrada) ni un código de equipamiento.
 // Así "Land Cruiser", "Eco Sport", "Grand Vitara", "Santa Fe" quedan como un solo modelo.
-function coModelosDe(marca){
-  const entries = (VEHIC_PAR[marca] || []).map(mod => ({
-    n: mod.n, c: mod.c, toks: String(mod.n).replace(/\s+/g,' ').trim().split(' ')
+// Agrupa una lista de vehículos [{n, c, provcod?}] en modelo base -> versiones.
+// El modelo es la primera palabra; se extiende si la siguiente es común a todas y no es
+// dato técnico ni equipamiento (así "Land Cruiser", "Eco Sport", "Grand Vitara" quedan juntos).
+function coAgrupar(items){
+  const entries = (items || []).map(it => ({
+    n: it.n, c: it.c, provcod: it.provcod,
+    toks: String(it.n).replace(/\s+/g,' ').trim().split(' ')
   }));
   const byFirst = new Map();
   entries.forEach(e => { const k = e.toks[0] || e.n; if(!byFirst.has(k)) byFirst.set(k, []); byFirst.get(k).push(e); });
@@ -188,10 +194,14 @@ function coModelosDe(marca){
       const modelo = e.toks.slice(0, depth).join(' ');
       const version = e.toks.slice(depth).join(' ') || modelo;
       if(!result.has(modelo)) result.set(modelo, []);
-      result.get(modelo).push({ n: e.n, c: e.c, version });
+      result.get(modelo).push({ n: e.n, c: e.c, provcod: e.provcod, version });
     });
   }
   return result;
+}
+// Base estática de Paraná agrupada (modelos de la marca; fallback de versiones).
+function coModelosDe(marca){
+  return coAgrupar((typeof VEHIC_PAR !== 'undefined' && VEHIC_PAR[marca] || []).map(m => ({ n: m.n, c: m.c })));
 }
 
 function coAbrir(){
@@ -270,30 +280,67 @@ function coAnioChange(){
   if(modelo) coModeloChange();
 }
 
-// Paso 2 → 3: al elegir el modelo, mostramos sus versiones (filtradas por año si tienen tag L/XX)
-function coModeloChange(){
+// Paso 3: al elegir el modelo cargamos las VERSIONES filtradas por el año elegido.
+// 1º intentamos Provincia (lista exacta del año); si falla, base estática de Paraná (heurística L/XX).
+async function coModeloChange(){
   if(_coSearchMode) return;
+  const marca  = document.getElementById('co_marca').value;
   const modelo = document.getElementById('co_modelo').value;
-  const anioSel = parseInt(document.getElementById('co_anio').value,10) || null;
+  const anio   = document.getElementById('co_anio').value;
   const selVer = document.getElementById('co_version');
+  if(!modelo){ selVer.innerHTML='<option value="">Elegí modelo primero</option>'; selVer.disabled=true; return; }
+  const reqId = ++_coVerReq;
+  selVer.innerHTML = '<option value="">Cargando versiones…</option>';
+  selVer.disabled = true;
+
+  let versiones = await coVersionesProvincia(marca, modelo, anio);
+  if(!versiones) versiones = coVersionesEstaticas(modelo, anio);
+  if(reqId !== _coVerReq) return; // llegó una carga más nueva: descartamos esta
+
+  if(!versiones.length){ selVer.innerHTML='<option value="">Sin versiones para ese año</option>'; selVer.disabled=true; return; }
   selVer.innerHTML = '<option value="">Seleccioná…</option>';
-  if(modelo && _coModeloMap && _coModeloMap.has(modelo)){
-    _coModeloMap.get(modelo).slice()
-      .filter(it=>{
-        if(!anioSel) return true;
-        const ay = coExtraerAnioVersion(it.version) || coExtraerAnioVersion(it.n);
-        return !ay || ay <= anioSel; // descarta solo versiones con tag POSTERIOR al año elegido
-      })
-      .sort((a,b)=>a.version.localeCompare(b.version,'es',{numeric:true}))
-      .forEach(it=>{
-        const o=document.createElement('option');
-        o.value = it.n;                  // nombre completo (modelo+versión) que se manda a Provincia
-        o.dataset.paranaCod = it.c;      // código de Paraná, para cuando se integre
-        o.textContent = it.version;      // mostramos sólo la versión
-        selVer.appendChild(o);
+  versiones.slice().sort((a,b)=>a.version.localeCompare(b.version,'es',{numeric:true})).forEach(it=>{
+    const o=document.createElement('option');
+    o.value = it.n;                                       // nombre completo (modelo+versión) que se manda a la cía
+    if(it.provcod) o.dataset.provcod = it.provcod;        // código exacto de Provincia para esa versión/año
+    else if(it.c != null) o.dataset.paranaCod = it.c;     // código de Paraná (fallback)
+    o.textContent = it.version;                           // mostramos sólo la versión
+    selVer.appendChild(o);
+  });
+  selVer.disabled = false;
+}
+
+// Versiones EXACTAS del año desde Provincia (listarModelos por marca+año, cacheado y agrupado).
+async function coVersionesProvincia(marca, modelo, anio){
+  if(!marca || !anio) return null;
+  const key = marca + '|' + anio;
+  let lista = _coCacheProv[key];
+  if(lista === undefined){
+    try{
+      const resp = await fetch('/.netlify/functions/provincia-cot', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ accion:'listarModelos', marca, anio })
       });
-    selVer.disabled = false;
-  } else { selVer.disabled = true; }
+      const json = await resp.json();
+      lista = (json && json.modelos && json.modelos.length) ? json.modelos : null;
+    }catch(e){ lista = null; }
+    _coCacheProv[key] = lista; // cacheamos también el null para no repetir el pedido
+  }
+  if(!lista) return null;
+  const mapa = coAgrupar(lista.map(m => ({ n: m.nombre, c: m.codigo, provcod: m.codigo })));
+  const arr = mapa.get(modelo);
+  return (arr && arr.length) ? arr : null;
+}
+
+// Versiones desde la base estática de Paraná, con filtro heurístico por tag "L/XX".
+function coVersionesEstaticas(modelo, anio){
+  if(!_coModeloMap || !_coModeloMap.has(modelo)) return [];
+  const a = parseInt(anio,10) || null;
+  return _coModeloMap.get(modelo).slice().filter(it=>{
+    if(!a) return true;
+    const ay = coExtraerAnioVersion(it.version) || coExtraerAnioVersion(it.n);
+    return !ay || ay <= a; // descarta solo versiones con tag POSTERIOR al año elegido
+  });
 }
 
 function _coErr(m){ const e=document.getElementById('coError'); e.textContent=m; e.style.display='block'; }

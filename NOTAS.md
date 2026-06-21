@@ -65,6 +65,12 @@
 - [ ] **Sumar más compañías**: misma receta — línea en `CO_CIAS` + proxy en
       `netlify/functions/` que devuelva `{ opciones:[{plan,cobertura,premio,suma}] }`.
 
+- [x] **Filtro EXACTO de versiones por año (API Provincia)**: al elegir Marca→Año→Modelo,
+      las versiones se traen en vivo de Provincia (`listarModelos` por marca+año), agrupadas
+      con `coAgrupar`. Cache por `marca|anio` y anti-carrera. Si la API falla, cae a la base
+      estática de Paraná con el filtro heurístico "L/XX". El modelo elegido lleva `provcod`
+      (código exacto de Provincia) para la cotización. En index.html y cotizar.html.
+
 ## 🔑 Variables de entorno por compañía (Netlify → Environment variables)
 - **Provincia**: `PROVINCIA_USER`, `PROVINCIA_PASS`
 - **Mercantil**: `MERCANTIL_USER`, `MERCANTIL_PASS`, `MERCANTIL_SUBKEY`, `MERCANTIL_PRODUCTOR`, `MERCANTIL_LOGIN_URL`
