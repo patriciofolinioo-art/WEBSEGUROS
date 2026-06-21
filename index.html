@@ -266,6 +266,10 @@
             <select id=co_marca class=co-inp onchange="coMarcaChange()"><option value="">Seleccioná…</option></select>
           </div>
           <div>
+            <label class=co-lbl>Año *</label>
+            <select id=co_anio class=co-inp onchange="coAnioChange()"></select>
+          </div>
+          <div>
             <label class=co-lbl>Modelo *</label>
             <select id=co_modelo class=co-inp disabled onchange="coModeloChange()"><option value="">Elegí marca primero</option></select>
           </div>
@@ -275,15 +279,9 @@
             <button type=button id=co_btnBuscar onclick="coBuscarModelos()" style="margin-top:6px;font-size:11px;background:#8e44ad14;color:#8e44ad;border:1px solid #8e44ad55;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:700;">🔍 ¿No está? Buscar modelo</button>
             <div id=co_buscarMsg style="font-size:11px;margin-top:5px;display:none;"></div>
           </div>
-          <div style="display:flex;gap:10px;">
-            <div style="flex:1;">
-              <label class=co-lbl>Año *</label>
-              <select id=co_anio class=co-inp onchange="coAnioChange()"></select>
-            </div>
-            <div style="flex:1;">
-              <label class=co-lbl>Código postal *</label>
-              <input id=co_cp class=co-inp inputmode=numeric placeholder=1642>
-            </div>
+          <div>
+            <label class=co-lbl>Código postal *</label>
+            <input id=co_cp class=co-inp inputmode=numeric placeholder=1642>
           </div>
           <div>
             <label class=co-lbl>Uso</label>
