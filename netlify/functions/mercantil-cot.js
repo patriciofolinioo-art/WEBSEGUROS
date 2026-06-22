@@ -19,7 +19,7 @@
 const HOST       = 'https://apidev.mercantilandina.com.ar';   // DEV — cambiar a prod cuando esté ok
 const VEH_BASE   = HOST + '/vehiculos/v1';
 const COTIZAR_URL = HOST + '/cotizaciones/v2/auto';
-const LOGIN_URL  = process.env.MERCANTIL_LOGIN_URL || (HOST + '/auth/v1/login');
+const LOGIN_URL  = process.env.MERCANTIL_LOGIN_URL || (HOST + '/credenciales/v2');
 
 // ── Parámetros comerciales (igual que en el portal) ──
 const COMISION     = 20; // % de comisión del productor (se mantiene en 20)
@@ -41,29 +41,29 @@ async function getToken() {
   if (!user || !pass) throw new Error('Credenciales Mercantil no configuradas (MERCANTIL_USER / MERCANTIL_PASS).');
   if (!sub) throw new Error('Falta MERCANTIL_SUBKEY (Ocp-Apim-Subscription-Key).');
 
-  const basic = Buffer.from(user + ':' + pass).toString('base64');
+  // Login OAuth2 (password grant, estilo Keycloak) → POST /credenciales/v2 con body urlencoded.
+  // (Confirmado en la colección Postman oficial de Mercantil: request "Login").
+  const body = new URLSearchParams({
+    client_id: 'api-clientes-login',
+    grant_type: 'password',
+    username: user,
+    password: pass
+  });
   const resp = await fetch(LOGIN_URL, {
     method: 'POST',
     headers: {
-      'Authorization': 'Basic ' + basic,
-      'Ocp-Apim-Subscription-Key': sub,
-      'Content-Type': 'application/json'
-    }
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Ocp-Apim-Subscription-Key': sub
+    },
+    body: body.toString()
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
     throw new Error('Login Mercantil HTTP ' + resp.status + ' ' + txt.slice(0, 160));
   }
-  const raw = await resp.text();
-  let token = '';
-  try {
-    const j = JSON.parse(raw);
-    token = j.token || j.access_token || j.accessToken || j.jwt || j.id_token || '';
-  } catch (e) {
-    token = raw.trim(); // respuesta en texto plano
-  }
-  if (!token) throw new Error('No se obtuvo token de Mercantil.');
-  token = token.replace(/^Bearer\s+/i, '');
+  const j = await resp.json().catch(() => ({}));
+  const token = j.access_token || j.token || '';
+  if (!token) throw new Error('No se obtuvo access_token de Mercantil.');
   _cache.token = token;
   _cache.exp = Date.now() + TOKEN_TTL_MS;
   return token;
