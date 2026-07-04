@@ -67,6 +67,7 @@ async function dignaFetch(path, { method = 'GET', headers = {}, body } = {}) {
     const detalle = (json && json.error) || '';
     throw new Error('Digna ' + path + ' -> HTTP ' + resp.status + ' ' + detalle);
   }
+  if (json === null) throw new Error('Digna ' + path + ' -> respuesta no es JSON válido');
   return json;
 }
 
@@ -78,7 +79,9 @@ async function getToken() {
   });
   // El manual dice: "session_token: Bearer Token que se usará para todas las consultas"
   // TODO: confirmar si session_token ya incluye el prefijo "Bearer " o hay que agregarlo.
-  _cache.token = json.payload.session_token;
+  const token = json.payload && json.payload.session_token;
+  if (!token) throw new Error('Digna authenticate: no se obtuvo session_token. Respuesta: ' + JSON.stringify(json).slice(0, 200));
+  _cache.token = token;
   _cache.tokenExp = Date.now() + TOKEN_TTL_MS;
   return _cache.token;
 }
@@ -150,7 +153,8 @@ function buscarVehiculoInfoAuto(marca, textoVersion) {
     const score = qTokens.reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0);
     if (score > mejorScore) { mejorScore = score; mejor = it; }
   });
-  return mejor;
+  // Solo devolver si al menos un token coincidió; si ninguno coincide, es un falso match.
+  return (mejor && mejorScore > 0) ? mejor : null;
 }
 
 function mapUso(uso) {

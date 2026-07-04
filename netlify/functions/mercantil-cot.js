@@ -133,7 +133,7 @@ function construirPayload(dat, vehiculoId) {
     "pago": { "tipo_pago": "D" },             // D = débito
     "iva": 5,                                  // 5 = Consumidor Final
     "desglose": true,
-    "productor": { "id": Number(process.env.MERCANTIL_PRODUCTOR) || 0 }
+    "productor": { "id": Number(process.env.MERCANTIL_PRODUCTOR) || 0 }  // MERCANTIL_PRODUCTOR debe estar configurado
   };
 }
 
@@ -171,6 +171,9 @@ exports.handler = async function (event) {
   try {
     if (!dat.anio || !dat.cp) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Faltan datos (año o código postal).', opciones: [] }) };
+    }
+    if (!process.env.MERCANTIL_PRODUCTOR) {
+      return { statusCode: 200, headers, body: JSON.stringify({ error: 'MERCANTIL_PRODUCTOR no configurado en el servidor.', opciones: [] }) };
     }
 
     const token = await getToken();
