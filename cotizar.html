@@ -555,4 +555,221 @@ function coVolver(){
 // Inicializar al cargar la página (en vez de al abrir modal)
 window.addEventListener('DOMContentLoaded', coAbrir);
 </script>
+
+
+<!-- ============ SECCIÓN SOLICITUD DE ASESORAMIENTO ============ -->
+<style>
+.sol-step{display:none}.sol-step.active{display:block}
+.sol-dot{width:8px;height:8px;border-radius:50%;background:#d0d7df;transition:background .2s}
+.sol-dot.done{background:var(--navy)}.sol-dot.active{background:var(--gold)}
+.sol-f{margin-bottom:14px}
+.sol-lbl{display:block;font-size:12px;font-weight:700;color:var(--navy-dark);margin-bottom:5px}
+.sol-inp{width:100%;padding:10px 13px;border:1.5px solid #d0d7df;border-radius:9px;font-size:14px;font-family:Nunito Sans,sans-serif;outline:none;color:var(--navy-dark);background:#fff;transition:border-color .15s}
+.sol-inp:focus{border-color:var(--navy)}
+.sol-row{display:flex;gap:12px}.sol-row .sol-f{flex:1}
+.sol-btn{padding:11px 22px;border:none;border-radius:9px;font-weight:800;font-size:14px;cursor:pointer;font-family:Nunito Sans,sans-serif}
+.sol-btn-next{background:var(--navy);color:#fff}.sol-btn-back{background:#e8ecf0;color:var(--navy-dark)}
+.sol-nav{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
+@media(max-width:700px){.sol-2col{grid-template-columns:1fr!important}.sol-row{flex-direction:column;gap:0}}
+</style>
+<section style="background:#f4f7fb;padding:60px 5% 64px;">
+  <div style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1.1fr;gap:48px;align-items:start;" class=sol-2col>
+    <!-- Info -->
+    <div>
+      <div style="color:var(--navy);font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;opacity:.7;">Asesoramiento profesional</div>
+      <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--navy-dark);line-height:1.3;margin-bottom:14px;">¿Preferís que un productor te asesore?</div>
+      <div style="color:var(--gray);font-size:14px;line-height:1.7;margin-bottom:28px;">Dejá tus datos y un productor matriculado compara entre nuestras compañías y te trae las mejores opciones — sin costo adicional.</div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+          <div style="font-size:13px;color:var(--navy-dark);line-height:1.5;padding-top:4px;">Completá tus datos de contacto y del vehículo</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+          <div style="font-size:13px;color:var(--navy-dark);line-height:1.5;padding-top:4px;">Elegí el tipo de cobertura que necesitás</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+          <div style="font-size:13px;color:var(--navy-dark);line-height:1.5;padding-top:4px;">Tu productor te contacta con las mejores opciones del mercado</div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #e8ecf0;border-radius:14px;padding:18px 20px;margin-top:28px;">
+        <div style="color:#2e7d32;font-size:12px;font-weight:800;margin-bottom:6px;">💬 ¿Preferís WhatsApp?</div>
+        <a href="https://wa.me/5491154522619?text=Hola!%20Quiero%20cotizar%20un%20seguro%20de%20auto." target="_blank" style="color:var(--navy);font-size:13px;font-weight:700;text-decoration:none;">Escribinos directo →</a>
+      </div>
+    </div>
+    <!-- Formulario -->
+    <div style="background:#fff;border-radius:20px;box-shadow:0 4px 24px #1a3a5c12;padding:32px;">
+      <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--navy-dark);margin-bottom:4px;">Solicitud de asesoramiento</div>
+      <div style="color:var(--gray);font-size:13px;margin-bottom:20px;">Completá los datos y te contactamos a la brevedad</div>
+      <!-- Dots -->
+      <div id=solDots style="display:flex;gap:6px;margin-bottom:22px;"></div>
+
+      <!-- Step 1: Contacto -->
+      <div class="sol-step active" id=solStep1>
+        <div class=sol-f><label class=sol-lbl>Nombre completo <span style=color:var(--red)>*</span></label><input class=sol-inp id=sol_nombre placeholder="Apellido, Nombre"></div>
+        <div class=sol-row>
+          <div class=sol-f><label class=sol-lbl>Celular <span style=color:var(--red)>*</span></label><input class=sol-inp id=sol_tel type=tel placeholder="11 1234-5678"></div>
+          <div class=sol-f><label class=sol-lbl>Email</label><input class=sol-inp id=sol_email type=email placeholder=tu@email.com></div>
+        </div>
+        <div class=sol-f><label class=sol-lbl>Código postal <span style=color:var(--red)>*</span></label><input class=sol-inp id=sol_cp type=tel inputmode=numeric placeholder=1642 style=width:50%></div>
+        <div class=sol-nav><div></div><button class="sol-btn sol-btn-next" onclick=solNext(1)>Siguiente →</button></div>
+      </div>
+
+      <!-- Step 2: Vehículo -->
+      <div class=sol-step id=solStep2>
+        <div class=sol-row>
+          <div class=sol-f><label class=sol-lbl>Marca <span style=color:var(--red)>*</span></label><select class=sol-inp id=sol_marca onchange=solModeloUpdate()><option value="">Seleccioná...</option></select></div>
+          <div class=sol-f><label class=sol-lbl>Modelo <span style=color:var(--red)>*</span></label><select class=sol-inp id=sol_modelo><option value="">Primero marca</option></select></div>
+        </div>
+        <div class=sol-row>
+          <div class=sol-f><label class=sol-lbl>Año <span style=color:var(--red)>*</span></label><select class=sol-inp id=sol_anio><option value="">Año...</option></select></div>
+          <div class=sol-f><label class=sol-lbl>Uso</label><select class=sol-inp id=sol_uso><option value=particular>Particular</option><option value=comercial>Comercial</option><option value=taxi>Taxi / Remis</option></select></div>
+        </div>
+        <div class=sol-f><label class=sol-lbl>Versión / Equipamiento</label><input class=sol-inp id=sol_version placeholder="Ej: 1.6 Comfort AT (opcional)"></div>
+        <div class=sol-nav>
+          <button class="sol-btn sol-btn-back" onclick=solPrev(2)>← Anterior</button>
+          <button class="sol-btn sol-btn-next" onclick=solNext(2)>Siguiente →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Cobertura + envío -->
+      <div class=sol-step id=solStep3>
+        <div class=sol-f><label class=sol-lbl>Cobertura deseada <span style=color:var(--red)>*</span></label>
+          <select class=sol-inp id=sol_cobertura>
+            <option value=A>RC Básica — Responsabilidad Civil</option>
+            <option value=B>Terceros Completo + robo e incendio</option>
+            <option value=C selected>Todo Riesgo con franquicia</option>
+            <option value=D>Todo Riesgo sin franquicia</option>
+          </select>
+        </div>
+        <div class=sol-f><label class=sol-lbl>Comentarios adicionales</label><textarea class=sol-inp id=sol_obs rows=3 style=resize:vertical placeholder="Aclaraciones, coberturas adicionales, etc."></textarea></div>
+        <div style="background:#f0f7ff;border:1px solid #c8a84b40;border-radius:10px;padding:12px 14px;font-size:12px;color:var(--navy-dark);margin-bottom:16px;line-height:1.5;">📨 Tu productor te va a contactar a la brevedad con las mejores opciones del mercado.</div>
+        <div class=sol-nav>
+          <button class="sol-btn sol-btn-back" onclick=solPrev(3)>← Anterior</button>
+          <button class="sol-btn sol-btn-next" id=solEnviarBtn onclick=solEnviar()>📨 Enviar solicitud</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Éxito -->
+      <div class=sol-step id=solStep4>
+        <div style="text-align:center;padding:24px 10px;">
+          <div style="font-size:48px;margin-bottom:12px;">✅</div>
+          <div style="font-size:18px;font-weight:800;color:var(--navy-dark);margin-bottom:8px;">¡Solicitud enviada!</div>
+          <div style="font-size:13px;color:var(--gray);line-height:1.6;margin-bottom:20px;">Recibimos tu pedido. Un productor matriculado te va a contactar a la brevedad con las mejores opciones.</div>
+          <button class="sol-btn sol-btn-next" onclick=solReset()>Nueva solicitud</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+// ============ SOLICITUD DE ASESORAMIENTO ============
+let _solStep = 1;
+
+function solRenderDots(){
+  const d = document.getElementById('solDots');
+  if(!d) return;
+  d.innerHTML = '';
+  for(let i=1;i<=3;i++){
+    const el = document.createElement('div');
+    el.className = 'sol-dot' + (i < _solStep ? ' done' : i === _solStep ? ' active' : '');
+    d.appendChild(el);
+  }
+}
+
+function solShowStep(s){
+  for(let i=1;i<=4;i++){
+    const el = document.getElementById('solStep'+i);
+    if(el) el.classList.toggle('active', i===s);
+  }
+  _solStep = s;
+  solRenderDots();
+}
+
+function solNext(from){
+  if(from===1){
+    if(!document.getElementById('sol_nombre').value.trim()){ alert('Ingresá tu nombre.'); return; }
+    if(!document.getElementById('sol_tel').value.trim()){ alert('Ingresá tu celular.'); return; }
+    if(!document.getElementById('sol_cp').value.trim()){ alert('Ingresá tu código postal.'); return; }
+  }
+  if(from===2){
+    if(!document.getElementById('sol_marca').value){ alert('Seleccioná la marca.'); return; }
+    if(!document.getElementById('sol_modelo').value){ alert('Seleccioná el modelo.'); return; }
+    if(!document.getElementById('sol_anio').value){ alert('Seleccioná el año.'); return; }
+  }
+  solShowStep(from+1);
+}
+
+function solPrev(from){ solShowStep(from-1); }
+
+function solModeloUpdate(){
+  const marca = document.getElementById('sol_marca').value;
+  const sel = document.getElementById('sol_modelo');
+  sel.innerHTML = '<option value="">Seleccioná modelo...</option>';
+  if(!marca) return;
+  const mapa = coModelosDe(marca); // reusa coModelosDe() del cotizador
+  mapa.forEach((_, modelo) => {
+    const o = document.createElement('option');
+    o.value = modelo; o.textContent = modelo;
+    sel.appendChild(o);
+  });
+}
+
+async function solEnviar(){
+  const btn = document.getElementById('solEnviarBtn');
+  btn.disabled = true; btn.textContent = '⏳ Enviando...';
+  try {
+    const prod = (_productores && _productores[0]) ? _productores[0] : {email:'pfolini.si@gmail.com', name:'San Isidro Seguros'};
+    const sol = {
+      ts: new Date().toISOString(),
+      estado: 'pendiente',
+      origen: 'cotizar_asesoramiento',
+      productorEmail: prod.email,
+      productorName: prod.name,
+      cliente: {
+        nombre: document.getElementById('sol_nombre').value.trim(),
+        tel: document.getElementById('sol_tel').value.trim(),
+        email: document.getElementById('sol_email').value.trim(),
+        cp: document.getElementById('sol_cp').value.trim()
+      },
+      vehiculo: {
+        marca: document.getElementById('sol_marca').value,
+        modelo: document.getElementById('sol_modelo').value,
+        anio: parseInt(document.getElementById('sol_anio').value) || 0,
+        uso: document.getElementById('sol_uso').value,
+        version: document.getElementById('sol_version').value.trim()
+      },
+      cobertura: document.getElementById('sol_cobertura').value,
+      observaciones: document.getElementById('sol_obs').value.trim()
+    };
+    await _db.collection('cotizaciones_web').add(sol);
+    solShowStep(4);
+  } catch(e){
+    alert('Error al enviar. Verificá tu conexión e intentá de nuevo.');
+    console.error(e);
+  }
+  btn.disabled = false; btn.textContent = '📨 Enviar solicitud';
+}
+
+function solReset(){
+  ['sol_nombre','sol_tel','sol_email','sol_cp','sol_version','sol_obs'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.value='';
+  });
+  const sm = document.getElementById('sol_marca'); if(sm) sm.value='';
+  const smod = document.getElementById('sol_modelo'); if(smod) smod.innerHTML='<option value="">Primero marca</option>';
+  const sa = document.getElementById('sol_anio'); if(sa) sa.value='';
+  solShowStep(1);
+}
+
+// Inicializar selects de marca y año
+(function solInit(){
+  const ms = document.getElementById('sol_marca');
+  MARCAS_AR.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; ms.appendChild(o); });
+  const as = document.getElementById('sol_anio');
+  getAnios().forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; as.appendChild(o); });
+  solRenderDots();
+})();
+</script>
 </body></html>
