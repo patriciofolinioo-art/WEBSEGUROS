@@ -62,6 +62,17 @@
       ⚠️ El zip original venía con un BUG (faltaba `function coModeloChange(){`) que rompía
       TODO el cotizador — se corrigió y se conectó el filtro en ambos archivos.
 
+- [x] **Panel Productor** agregado en `index.html`. Acceso via link "Panel" en el footer.
+      Login con Firebase email/password. Muestra hasta 40 solicitudes recientes de
+      `cotizaciones_web` y 30 denuncias de `siniestros_web` con botón de WhatsApp directo.
+      ⚠️ Requiere que las reglas de Firestore permitan leer `cotizaciones_web` y
+      `siniestros_web` al productor autenticado (email/password auth).
+
+- [x] **Fix cotizar.html `_productores`**: antes era estático (sanisidroseguros@yahoo.com.ar).
+      Ahora carga dinámicamente desde Firebase igual que `index.html`, con `initApp()` y
+      `signInAnonymously()`. También se agregó `firebase-auth-compat.js` y se actualizó
+      la versión de Firebase SDK a 9.22.2 (consistente con index.html).
+
 - [ ] **Sumar más compañías**: misma receta — línea en `CO_CIAS` + proxy en
       `netlify/functions/` que devuelva `{ opciones:[{plan,cobertura,premio,suma}] }`.
 
