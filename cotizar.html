@@ -493,7 +493,7 @@ async function coElegir(i){
   // 1) Guardar la solicitud en Firebase (queda registro para el productor)
   try{
     if(typeof _db !== 'undefined' && _db){
-      const prod = (typeof _productores !== 'undefined' && _productores[0]) ? _productores[0] : { email:'sanisidroseguros@yahoo.com.ar', name:'San Isidro Seguros' };
+      const prod = (typeof _productores !== 'undefined' && _productores[0]) ? _productores[0] : { email:'pfolini.si@gmail.com', name:'San Isidro Seguros' };
       await _db.collection('cotizaciones_web').add({
         ts: new Date().toISOString(),
         estado: 'pendiente',
@@ -710,7 +710,7 @@ function solModeloUpdate(){
   sel.innerHTML = '<option value="">Seleccioná modelo...</option>';
   if(!marca) return;
   const mapa = coModelosDe(marca); // reusa coModelosDe() del cotizador
-  mapa.forEach((_, modelo) => {
+  [...mapa.keys()].sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'})).forEach(modelo => {
     const o = document.createElement('option');
     o.value = modelo; o.textContent = modelo;
     sel.appendChild(o);
@@ -746,11 +746,12 @@ async function solEnviar(){
     };
     await _db.collection('cotizaciones_web').add(sol);
     solShowStep(4);
+    return; // success: don't restore button (step 3 is hidden)
   } catch(e){
     alert('Error al enviar. Verificá tu conexión e intentá de nuevo.');
     console.error(e);
+    btn.disabled = false; btn.textContent = '📨 Enviar solicitud';
   }
-  btn.disabled = false; btn.textContent = '📨 Enviar solicitud';
 }
 
 function solReset(){
@@ -760,6 +761,8 @@ function solReset(){
   const sm = document.getElementById('sol_marca'); if(sm) sm.value='';
   const smod = document.getElementById('sol_modelo'); if(smod) smod.innerHTML='<option value="">Primero marca</option>';
   const sa = document.getElementById('sol_anio'); if(sa) sa.value='';
+  const su = document.getElementById('sol_uso'); if(su) su.value='particular';
+  const sc = document.getElementById('sol_cobertura'); if(sc) sc.value='C';
   solShowStep(1);
 }
 
