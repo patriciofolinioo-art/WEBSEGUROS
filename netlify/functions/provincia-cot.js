@@ -203,7 +203,8 @@ exports.handler = async function(event) {
     const cotData = JSON.parse(cotText);
 
     // Aplanar planes → lista limpia de coberturas con premio (sin exponer datos internos)
-    const planesRaw = cotData.planes || cotData.cotizaciones || cotData.resultados || [];
+    // Provincia PS2 devuelve { status, content:[...] }; otras versiones devuelven planes/cotizaciones.
+    const planesRaw = cotData.planes || cotData.cotizaciones || cotData.resultados || cotData.content || [];
     // La suma asegurada puede venir a nivel general de la cotización
     const sumaGeneral = parseFloat(
       cotData.sumaAsegurada ?? cotData.valorAsegurado ?? cotData.capitalAsegurado ??
@@ -220,13 +221,15 @@ exports.handler = async function(event) {
       const sumaPlan = leerSuma(pl) || sumaGeneral;
       if (Array.isArray(proms) && proms.length > 0) {
         proms.forEach(promo => {
-          const premio = parseFloat(promo.premio ?? promo.premioMensual ?? promo.importe ?? promo.prima) || 0;
+          const premio = parseFloat(promo.premio ?? promo.premioMensual ?? promo.importe ?? promo.prima ?? promo.importe_premio_1) || 0;
           const suma = leerSuma(promo) || sumaPlan;
-          if (premio > 0) opciones.push({ plan: pl.plan || '', cobertura: pl.descripcion || promo.descripcion || '', premio, suma });
+          if (premio > 0) opciones.push({ plan: pl.plan || pl.codigo_plan || '', cobertura: pl.descripcion || pl.denominacion_plan || promo.descripcion || '', premio, suma });
         });
       } else {
-        const premio = parseFloat(pl.premio ?? pl.premioMensual ?? pl.importe ?? pl.prima) || 0;
-        if (premio > 0) opciones.push({ plan: pl.plan || '', cobertura: pl.descripcion || '', premio, suma: sumaPlan });
+        // ⚠️ Formato PS2: importe_premio_1 es el precio final CON promo (lo que muestra el portal).
+        // NUNCA usar importe_base: ese es el precio SIN promo (~2,4x más caro).
+        const premio = parseFloat(pl.premio ?? pl.premioMensual ?? pl.importe ?? pl.prima ?? pl.importe_premio_1) || 0;
+        if (premio > 0) opciones.push({ plan: pl.plan || pl.codigo_plan || '', cobertura: pl.descripcion || pl.denominacion_plan || '', premio, suma: sumaPlan });
       }
     });
     opciones.sort((a,b) => a.premio - b.premio);
