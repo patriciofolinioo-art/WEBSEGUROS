@@ -144,6 +144,31 @@ exports.handler = async function(event) {
   };
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+
+  // ── DEBUG temporal: abrir en el navegador
+  //    https://sanisidroseguros.com.ar/.netlify/functions/provincia-cot?debug=1
+  //    Devuelve el payload que la web ENVÍA + la respuesta CRUDA de Provincia, para ver los
+  //    nombres de campo reales (importe_premio_1 vs importe_base, etc.). QUITAR tras diagnosticar.
+  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
+    try {
+      const q = event.queryStringParameters || {};
+      const marca = q.marca || 'Ford', modelo = q.modelo || 'Focus', anio = q.anio || '2015';
+      const tokenD = await getToken();
+      const marcaCodD = await buscarCodigoMarca(tokenD, marca, '04100');
+      const modeloCodD = await buscarCodigoModelo(tokenD, marcaCodD, modelo, anio, '04100');
+      const payloadD = construirPayload({ marca, modelo, anio, cp: q.cp || '1642', uso: 'particular' }, marcaCodD, modeloCodD);
+      const respD = await fetch(COTIZAR_URL + '?apikey=' + API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tokenD, 'apikey': API_KEY },
+        body: JSON.stringify(payloadD)
+      });
+      const rawD = await respD.text();
+      return { statusCode: 200, headers, body: JSON.stringify({ _debug: true, marcaCod: marcaCodD, modeloCod: modeloCodD, provinciaStatus: respD.status, payloadEnviado: payloadD, provinciaRaw: rawD.slice(0, 6000) }) };
+    } catch (e) {
+      return { statusCode: 200, headers, body: JSON.stringify({ _debug: true, error: e.message }) };
+    }
+  }
+
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
 
   try {
