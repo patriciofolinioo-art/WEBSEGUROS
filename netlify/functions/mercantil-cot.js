@@ -162,6 +162,40 @@ exports.handler = async function (event) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+
+  // ── DEBUG temporal: abrir en el navegador
+  //    https://sanisidroseguros.com.ar/.netlify/functions/mercantil-cot?debug=1
+  //    Muestra qué env vars están cargadas (solo SI existen, NO su valor), si obtuvo token,
+  //    si encontró el vehículo y la respuesta cruda de la cotización. QUITAR tras diagnosticar.
+  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
+    const dbg = {
+      _debug: true,
+      env: {
+        MERCANTIL_USER: !!process.env.MERCANTIL_USER,
+        MERCANTIL_PASS: !!process.env.MERCANTIL_PASS,
+        MERCANTIL_SUBKEY: !!process.env.MERCANTIL_SUBKEY,
+        MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null,
+        MERCANTIL_LOGIN_URL: process.env.MERCANTIL_LOGIN_URL || ('(default) ' + LOGIN_URL),
+        HOST
+      }
+    };
+    try {
+      const q = event.queryStringParameters || {};
+      const token = await getToken();
+      dbg.tokenObtenido = !!token;
+      const vehId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', q.anio || '2015', false);
+      dbg.vehiculoId = vehId;
+      if (vehId != null) {
+        const payloadD = construirPayload({ cp: q.cp || '1642', anio: q.anio || '2015', uso: 'particular', gnc: 'no' }, vehId);
+        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
+        dbg.cotizarStatus = r.status;
+        dbg.cotizarRaw = (await r.text()).slice(0, 3000);
+        dbg.payloadEnviado = payloadD;
+      }
+    } catch (e) { dbg.error = e.message; }
+    return { statusCode: 200, headers, body: JSON.stringify(dbg) };
+  }
+
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
 
   let dat;
