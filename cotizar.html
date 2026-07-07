@@ -435,13 +435,14 @@ async function coCotizar(){
         body: JSON.stringify(_coDat)
       });
       const json = await resp.json();
-      if(json.error || !json.opciones || !json.opciones.length) return [];
+      if(json.error){ console.warn('['+cia.nombre+'] '+json.error); return []; }
+      if(!json.opciones || !json.opciones.length){ console.warn('['+cia.nombre+'] sin opciones (HTTP '+resp.status+')'); return []; }
       // Etiquetamos cada plan con la compañía de origen
       return json.opciones.map(op => ({
         cia: cia.id, ciaNombre: cia.nombre, color: cia.color,
         plan: op.plan||'', cobertura: op.cobertura||'', premio: op.premio||0, suma: op.suma||0
       }));
-    }catch(e){ return []; }
+    }catch(e){ console.warn('['+cia.nombre+'] fetch falló: '+e.message); return []; }
   }));
 
   // Juntar todo y ordenar por precio (más barato primero, sin importar la compañía)
