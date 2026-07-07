@@ -51,7 +51,8 @@
 
 - [x] **Digna Seguros agregada** (`digna-cot.js` + `infoauto.json` + línea en `CO_CIAS`,
       color naranja). Resuelve el vehículo 100% local contra `infoauto.json` (códigos
-      InfoAuto). Descuento 30% (códigos 29+25). 99/102 marcas de Paraná matchean con
+      InfoAuto). Descuento 20% (código 29) — se bajó de 30% (29+25) para alinear con
+      Provincia/Mercantil, porque Digna salía demasiado barato. 99/102 marcas de Paraná matchean con
       infoauto (no matchean: Land Rover, I.k.a., Jac).
       **Falta para que funcione en vivo:** variables de entorno en Netlify
       `DIGNA_USER`, `DIGNA_PASS`, `DIGNA_BASE_URL` (testing/desarrollo), y confirmar
