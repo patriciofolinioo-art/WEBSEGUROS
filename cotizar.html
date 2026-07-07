@@ -152,7 +152,9 @@ const CO_WA = '5491154522619';
 // El proxy debe devolver { opciones:[{plan,cobertura,premio}], error? } igual que provincia-cot.
 const CO_CIAS = [
   { id:'provincia', nombre:'Provincia Seguros', proxy:'/.netlify/functions/provincia-cot', color:'#8e44ad', soportaBuscarModelo:true }
-  ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
+  // MERCANTIL desactivado hasta tener acceso de PRODUCCIÓN (productor 87139 no habilitado en DEV → error MCA007).
+  // Reactivar: quitar el "//" de la línea de abajo Y pasar HOST a producción en mercantil-cot.js.
+  //,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
   ,{ id:'digna', nombre:'Digna Seguros', proxy:'/.netlify/functions/digna-cot', color:'#ff6600', soportaBuscarModelo:false }
 ];
 
