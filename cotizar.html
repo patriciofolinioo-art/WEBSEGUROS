@@ -127,7 +127,7 @@ body{font-family:Nunito Sans,sans-serif;background:linear-gradient(160deg,#0a1a3
 firebase.apps.length||firebase.initializeApp({apiKey:`AIzaSyCWv7D6Kv7gTvg-tm6zAlKD1WOmJn2TugE`,authDomain:`base-seguros-f5144.firebaseapp.com`,projectId:`base-seguros-f5144`,storageBucket:`base-seguros-f5144.firebasestorage.app`,messagingSenderId:`485715284483`,appId:`1:485715284483:web:0353db350f6681d4ea3436`});
 const _db=firebase.firestore();
 let _productores=[];
-async function initApp(){try{await firebase.auth().signInAnonymously();let snap=await _db.collection(`sanisidro`).doc(`datos`).get();if(snap.exists){let d=snap.data().sisData||snap.data();let u=d.users||{};Object.entries(u).forEach(([email,v])=>{v.activo!==false&&_productores.push({email,name:v.name,role:v.role})});}_productores.length||_productores.push({email:`pfolini.si@gmail.com`,name:`San Isidro Seguros`,role:`admin`})}catch(e){_productores=[{email:`pfolini.si@gmail.com`,name:`San Isidro Seguros`,role:`admin`}];console.warn(`initApp:`,e)}}initApp();
+async function initApp(){try{await firebase.auth().signInAnonymously()}catch(e){console.warn(`initApp:`,e)}_productores.length||_productores.push({email:`pfolini.si@gmail.com`,name:`San Isidro Seguros`,role:`admin`})}initApp();
 </script>
 
 <!-- Datos de vehículos -->

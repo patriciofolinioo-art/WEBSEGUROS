@@ -82,10 +82,33 @@
       estática de Paraná con el filtro heurístico "L/XX". El modelo elegido lleva `provcod`
       (código exacto de Provincia) para la cotización. En index.html y cotizar.html.
 
+- [x] **Área de clientes por DNI → función serverless `cliente-dni.js`**. Antes el sitio
+      leía TODA la base `sanisidro/datos` desde el navegador (con login anónimo), lo que:
+      (a) fallaba con `Missing or insufficient permissions` si las reglas no lo permitían
+      → el siniestro "no encontraba el DNI"; y (b) si se abría la regla, exponía TODA la
+      base (DNIs, teléfonos, pólizas de todos) públicamente.
+      Ahora `sinLogin()` llama a `/.netlify/functions/cliente-dni` mandando SOLO el DNI.
+      La función lee Firestore del lado del servidor (REST API + service account, sin
+      dependencias npm) y devuelve únicamente ESE cliente + sus pólizas vigentes + las
+      compañías de esas pólizas. La base queda privada.
+      También se sacó el read de `sanisidro/datos` de `initApp()` en index.html y cotizar.html
+      (ya no hace falta; se mantiene `signInAnonymously()` para poder escribir en
+      `siniestros_web` / `solicitudes_web` / `cotizaciones_web`). Eso elimina el error de
+      permisos de la consola.
+      **Falta para que funcione en vivo:** cargar en Netlify las variables de la service
+      account de Firebase (ver abajo). Las reglas de Firestore pueden seguir NEGANDO la
+      lectura anónima de `sanisidro/datos` — es lo deseado.
+
 ## 🔑 Variables de entorno por compañía (Netlify → Environment variables)
 - **Provincia**: `PROVINCIA_USER`, `PROVINCIA_PASS`
 - **Mercantil**: `MERCANTIL_USER`, `MERCANTIL_PASS`, `MERCANTIL_SUBKEY`, `MERCANTIL_PRODUCTOR`, `MERCANTIL_LOGIN_URL`
 - **Digna**: `DIGNA_USER`, `DIGNA_PASS`, `DIGNA_BASE_URL`, `DIGNA_COD_PRODUCTOR`
+- **Firebase (área de clientes)**: `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
+  (y opcional `FIREBASE_PROJECT_ID`, ya viene con `base-seguros-f5144` por defecto).
+  Se sacan del JSON de una **service account** de Firebase:
+  Firebase console → Configuración del proyecto → Cuentas de servicio → Generar nueva clave
+  privada. Del JSON: `client_email` → `FIREBASE_CLIENT_EMAIL`; `private_key` → `FIREBASE_PRIVATE_KEY`
+  (pegar tal cual, con los `\n`).
 
 ## 🔐 Seguridad (a revisar cuando se pueda)
 
