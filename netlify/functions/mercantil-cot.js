@@ -191,11 +191,21 @@ exports.handler = async function (event) {
       const infoautoId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', anio, false);
       dbg.infoautoElegido = infoautoId;
       if (infoautoId != null) {
-        const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, infoautoId);
-        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
-        dbg.cotizarStatus = r.status;
-        dbg.cotizarRaw = (await r.text()).slice(0, 2500);
-        dbg.payloadEnviado = payloadD;
+        // El vehículo ya lo acepta. Ahora buscamos una combinación comisión/bonificación válida
+        // para la cuenta (MCA008). Probamos varias y nos quedamos con la primera que cotice.
+        const combos = [[20,0],[0,0],[20,25],[25,0],[10,0],[15,0],[20,10],[20,20],[20,15],[30,0]];
+        dbg.pruebasComerciales = [];
+        for (const [com, bon] of combos) {
+          const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, infoautoId);
+          payloadD.comision = com; payloadD.bonificacion = bon;
+          const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
+          const txt = await r.text();
+          const ok = r.status === 200;
+          let msg = 'OK';
+          if (!ok) { try { const j = JSON.parse(txt); msg = (j.errores && j.errores[0] && j.errores[0].mensaje) || txt.slice(0, 90); } catch (e) { msg = txt.slice(0, 90); } }
+          dbg.pruebasComerciales.push({ comision: com, bonificacion: bon, status: r.status, resultado: ok ? 'COTIZA ✓' : msg });
+          if (ok) { dbg.comboValido = { comision: com, bonificacion: bon }; dbg.cotizarRaw = txt.slice(0, 1500); break; }
+        }
       }
     } catch (e) { dbg.error = e.message; }
     return { statusCode: 200, headers, body: JSON.stringify(dbg) };
