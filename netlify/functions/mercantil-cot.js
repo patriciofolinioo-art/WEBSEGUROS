@@ -21,9 +21,11 @@ const VEH_BASE   = HOST + '/vehiculos/v1';
 const COTIZAR_URL = HOST + '/cotizaciones/v2/auto';
 const LOGIN_URL  = process.env.MERCANTIL_LOGIN_URL || (HOST + '/credenciales/v2');
 
-// ── Parámetros comerciales (igual que en el portal) ──
-const COMISION     = 20; // % de comisión del productor (se mantiene en 20)
-const BONIFICACION = 25; // % de descuento/bonificación que aplica el productor
+// ── Parámetros comerciales ──
+// La cuenta (test 15056) exige bonificación = 0. La comisión válida puede ser 10, 20, 25 o 30
+// (confirmado con el debug de combos). Con bonif 25 la cuenta rechazaba la cotización (MCA008).
+const COMISION     = 20; // % de comisión del productor. Valores válidos para esta cuenta: 10/20/25/30
+const BONIFICACION = 0;  // % de bonificación. DEBE ser 0 para esta cuenta.
 
 // Uso del vehículo en Mercantil: 1 = Particular (por defecto)
 const USO_PARTICULAR = 1;
@@ -178,42 +180,6 @@ exports.handler = async function (event) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-
-  // ── DEBUG temporal: https://sanisidroseguros.com.ar/.netlify/functions/mercantil-cot?debug=1
-  //    Confirma que con el vehículo por "infoauto" ya cotiza (status 200). QUITAR tras verificar.
-  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
-    const dbg = { _debug: true, env: { MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null, HOST } };
-    try {
-      const q = event.queryStringParameters || {};
-      const anio = q.anio || '2015';
-      const token = await getToken();
-      dbg.tokenObtenido = !!token;
-      const infoautoId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', anio, false);
-      dbg.infoautoElegido = infoautoId;
-      if (infoautoId != null) {
-        // El vehículo ya lo acepta. Buscamos una combo comisión/bonificación válida (MCA008).
-        // En PARALELO para no pasarnos del timeout de la función (10 seguidas se colgaba).
-        const combos = [[20,0],[0,0],[25,0],[20,25],[10,0],[30,0]];
-        const res = await Promise.all(combos.map(async ([com, bon]) => {
-          try {
-            const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, infoautoId);
-            payloadD.comision = com; payloadD.bonificacion = bon;
-            const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
-            const txt = await r.text();
-            const ok = r.status === 200;
-            let msg = 'OK';
-            if (!ok) { try { const j = JSON.parse(txt); msg = (j.errores && j.errores[0] && j.errores[0].mensaje) || txt.slice(0, 90); } catch (e) { msg = txt.slice(0, 90); } }
-            return { comision: com, bonificacion: bon, status: r.status, resultado: ok ? 'COTIZA ✓' : msg, raw: ok ? txt.slice(0, 1200) : null };
-          } catch (e) { return { comision: com, bonificacion: bon, status: 0, resultado: 'error: ' + e.message, raw: null }; }
-        }));
-        dbg.pruebasComerciales = res.map(({ raw, ...rest }) => rest);
-        const valido = res.find(x => x.status === 200);
-        if (valido) { dbg.comboValido = { comision: valido.comision, bonificacion: valido.bonificacion }; dbg.cotizarRaw = valido.raw; }
-      }
-    } catch (e) { dbg.error = e.message; }
-    return { statusCode: 200, headers, body: JSON.stringify(dbg) };
-  }
-
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
 
   let dat;
