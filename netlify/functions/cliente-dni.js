@@ -14,16 +14,30 @@
 
 const crypto = require('crypto');
 
-const PROJECT_ID   = process.env.FIREBASE_PROJECT_ID || 'base-seguros-f5144';
-const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
-// Netlify puede guardar la clave con "\n" literales, con saltos reales, y a veces con comillas
-// envolventes. Normalizamos todo para que OpenSSL la acepte (si no, tira DECODER unsupported).
-const PRIVATE_KEY  = (process.env.FIREBASE_PRIVATE_KEY || '')
-  .trim()
-  .replace(/^["']|["']$/g, '')   // comillas envolventes si se pegaron
-  .replace(/\\r\\n/g, '\n')       // \r\n literales
-  .replace(/\\n/g, '\n')          // \n literales -> salto real
-  .replace(/\r\n/g, '\n');        // \r\n reales -> \n
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'base-seguros-f5144';
+
+// Robustez: soportamos que en Netlify hayan pegado en FIREBASE_PRIVATE_KEY:
+//   (a) solo el valor de la clave  ("-----BEGIN PRIVATE KEY-----...-----END...")
+//   (b) el JSON COMPLETO de la service account (caso común) → extraemos private_key y client_email.
+let _rawKey = (process.env.FIREBASE_PRIVATE_KEY || '').trim();
+let _emailFromJson = null;
+let _keyFromJson = false;
+if (_rawKey.startsWith('{')) {
+  try {
+    const j = JSON.parse(_rawKey);
+    if (j.private_key) { _rawKey = j.private_key; _keyFromJson = true; }
+    if (j.client_email) _emailFromJson = j.client_email;
+  } catch (e) { /* no era JSON válido, seguimos con el texto tal cual */ }
+}
+// Normalizamos comillas y saltos de línea para que OpenSSL acepte el PEM (si no: DECODER unsupported).
+const PRIVATE_KEY = _rawKey
+  .replace(/^["']|["']$/g, '')
+  .replace(/\\r\\n/g, '\n')
+  .replace(/\\n/g, '\n')
+  .replace(/\r\n/g, '\n');
+const KEY_FROM_JSON = _keyFromJson;
+// El client_email puede venir de su propia variable o del JSON completo pegado en la private key.
+const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || _emailFromJson;
 
 // Cache del access token en memoria (vida del contenedor lambda).
 let _tokenCache = { token: null, exp: 0 };
@@ -130,7 +144,8 @@ exports.handler = async function (event) {
         empiezaBien: PRIVATE_KEY.startsWith('-----BEGIN PRIVATE KEY-----'),
         terminaBien: PRIVATE_KEY.trimEnd().endsWith('-----END PRIVATE KEY-----'),
         tieneSaltosReales: PRIVATE_KEY.includes('\n'),
-        rawTeniaBackslashNLiteral: /\\n/.test(process.env.FIREBASE_PRIVATE_KEY || '')
+        extraidoDeJsonCompleto: KEY_FROM_JSON,
+        emailUsado: CLIENT_EMAIL || null
       }
     };
     try {
