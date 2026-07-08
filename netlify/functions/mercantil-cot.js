@@ -180,22 +180,39 @@ exports.handler = async function (event) {
     };
     try {
       const q = event.queryStringParameters || {};
+      const anio = q.anio || '2015';
       const token = await getToken();
       dbg.tokenObtenido = !!token;
-      // Búsqueda de vehículo CRUDA: para ver qué campos trae (id vs codigo) y elegir bien.
-      const vq = ((q.marca || 'Ford') + ' ' + (q.modelo || 'Focus')).trim();
-      const vurl = VEH_BASE + '/?q=' + encodeURIComponent(vq) + '&anio=' + encodeURIComponent(q.anio || '2015') + '&tipo=AUTO&limit=5';
-      const vresp = await fetch(vurl, { method: 'GET', headers: authHeaders(token) });
-      dbg.vehiculoSearchStatus = vresp.status;
-      dbg.vehiculoSearchRaw = (await vresp.text()).slice(0, 2500);
-      const vehId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', q.anio || '2015', false);
-      dbg.vehiculoId = vehId;
-      if (vehId != null) {
-        const payloadD = construirPayload({ cp: q.cp || '1642', anio: q.anio || '2015', uso: 'particular', gnc: 'no' }, vehId);
-        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
-        dbg.cotizarStatus = r.status;
-        dbg.cotizarRaw = (await r.text()).slice(0, 3000);
-        dbg.payloadEnviado = payloadD;
+
+      // Paso 1 (documentado): GET /vehiculos/v1/marcas -> [{codigo, desc}]
+      const mresp = await fetch(VEH_BASE + '/marcas', { headers: authHeaders(token) });
+      dbg.marcasStatus = mresp.status;
+      const mtext = await mresp.text();
+      let marcas = []; try { marcas = JSON.parse(mtext); } catch (e) {}
+      dbg.marcasSample = mtext.slice(0, 300);
+      const marcaBuscada = (q.marca || 'Ford').toUpperCase();
+      const marcaItem = (Array.isArray(marcas) ? marcas : []).find(m => (m.desc || '').toUpperCase().includes(marcaBuscada));
+      dbg.marcaMatch = marcaItem || null;
+
+      // Paso 2 (documentado): GET /vehiculos/v1/marcas/{marca}/{año} -> lista de vehículos
+      if (marcaItem) {
+        const vresp = await fetch(VEH_BASE + '/marcas/' + marcaItem.codigo + '/' + anio, { headers: authHeaders(token) });
+        dbg.vehListStatus = vresp.status;
+        const vtext = await vresp.text();
+        dbg.vehListRaw = vtext.slice(0, 2500);
+        let vehs = []; try { vehs = JSON.parse(vtext); } catch (e) {}
+        const modeloBuscado = (q.modelo || 'Focus').toUpperCase();
+        const vehItem = (Array.isArray(vehs) ? vehs : []).find(v => (v.desc || '').toUpperCase().includes(modeloBuscado)) || (Array.isArray(vehs) ? vehs[0] : null);
+        dbg.vehMatch = vehItem || null;
+
+        // Paso 3: cotizar con el código de vehículo correcto
+        if (vehItem && vehItem.codigo != null) {
+          const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, vehItem.codigo);
+          const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
+          dbg.cotizarStatus = r.status;
+          dbg.cotizarRaw = (await r.text()).slice(0, 2000);
+          dbg.payloadEnviado = payloadD;
+        }
       }
     } catch (e) { dbg.error = e.message; }
     return { statusCode: 200, headers, body: JSON.stringify(dbg) };
