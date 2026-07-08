@@ -182,6 +182,12 @@ exports.handler = async function (event) {
       const q = event.queryStringParameters || {};
       const token = await getToken();
       dbg.tokenObtenido = !!token;
+      // Búsqueda de vehículo CRUDA: para ver qué campos trae (id vs codigo) y elegir bien.
+      const vq = ((q.marca || 'Ford') + ' ' + (q.modelo || 'Focus')).trim();
+      const vurl = VEH_BASE + '/?q=' + encodeURIComponent(vq) + '&anio=' + encodeURIComponent(q.anio || '2015') + '&tipo=AUTO&limit=5';
+      const vresp = await fetch(vurl, { method: 'GET', headers: authHeaders(token) });
+      dbg.vehiculoSearchStatus = vresp.status;
+      dbg.vehiculoSearchRaw = (await vresp.text()).slice(0, 2500);
       const vehId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', q.anio || '2015', false);
       dbg.vehiculoId = vehId;
       if (vehId != null) {
@@ -189,7 +195,7 @@ exports.handler = async function (event) {
         const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
         dbg.cotizarStatus = r.status;
         dbg.cotizarRaw = (await r.text()).slice(0, 3000);
-        dbg.productorEnviado = payloadD.productor;
+        dbg.payloadEnviado = payloadD;
       }
     } catch (e) { dbg.error = e.message; }
     return { statusCode: 200, headers, body: JSON.stringify(dbg) };

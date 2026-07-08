@@ -16,8 +16,14 @@ const crypto = require('crypto');
 
 const PROJECT_ID   = process.env.FIREBASE_PROJECT_ID || 'base-seguros-f5144';
 const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
-// En Netlify la private key se pega con "\n" literales; los convertimos a saltos de línea reales.
-const PRIVATE_KEY  = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+// Netlify puede guardar la clave con "\n" literales, con saltos reales, y a veces con comillas
+// envolventes. Normalizamos todo para que OpenSSL la acepte (si no, tira DECODER unsupported).
+const PRIVATE_KEY  = (process.env.FIREBASE_PRIVATE_KEY || '')
+  .trim()
+  .replace(/^["']|["']$/g, '')   // comillas envolventes si se pegaron
+  .replace(/\\r\\n/g, '\n')       // \r\n literales
+  .replace(/\\n/g, '\n')          // \n literales -> salto real
+  .replace(/\r\n/g, '\n');        // \r\n reales -> \n
 
 // Cache del access token en memoria (vida del contenedor lambda).
 let _tokenCache = { token: null, exp: 0 };
@@ -117,6 +123,14 @@ exports.handler = async function (event) {
         FIREBASE_PROJECT_ID: PROJECT_ID,
         FIREBASE_CLIENT_EMAIL: !!CLIENT_EMAIL,
         FIREBASE_PRIVATE_KEY: !!PRIVATE_KEY
+      },
+      // Diagnóstico de la private key SIN exponer su contenido (solo estructura).
+      keyInfo: {
+        length: PRIVATE_KEY.length,
+        empiezaBien: PRIVATE_KEY.startsWith('-----BEGIN PRIVATE KEY-----'),
+        terminaBien: PRIVATE_KEY.trimEnd().endsWith('-----END PRIVATE KEY-----'),
+        tieneSaltosReales: PRIVATE_KEY.includes('\n'),
+        rawTeniaBackslashNLiteral: /\\n/.test(process.env.FIREBASE_PRIVATE_KEY || '')
       }
     };
     try {
