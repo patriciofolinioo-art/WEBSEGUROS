@@ -191,21 +191,24 @@ exports.handler = async function (event) {
       const infoautoId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', anio, false);
       dbg.infoautoElegido = infoautoId;
       if (infoautoId != null) {
-        // El vehículo ya lo acepta. Ahora buscamos una combinación comisión/bonificación válida
-        // para la cuenta (MCA008). Probamos varias y nos quedamos con la primera que cotice.
-        const combos = [[20,0],[0,0],[20,25],[25,0],[10,0],[15,0],[20,10],[20,20],[20,15],[30,0]];
-        dbg.pruebasComerciales = [];
-        for (const [com, bon] of combos) {
-          const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, infoautoId);
-          payloadD.comision = com; payloadD.bonificacion = bon;
-          const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
-          const txt = await r.text();
-          const ok = r.status === 200;
-          let msg = 'OK';
-          if (!ok) { try { const j = JSON.parse(txt); msg = (j.errores && j.errores[0] && j.errores[0].mensaje) || txt.slice(0, 90); } catch (e) { msg = txt.slice(0, 90); } }
-          dbg.pruebasComerciales.push({ comision: com, bonificacion: bon, status: r.status, resultado: ok ? 'COTIZA ✓' : msg });
-          if (ok) { dbg.comboValido = { comision: com, bonificacion: bon }; dbg.cotizarRaw = txt.slice(0, 1500); break; }
-        }
+        // El vehículo ya lo acepta. Buscamos una combo comisión/bonificación válida (MCA008).
+        // En PARALELO para no pasarnos del timeout de la función (10 seguidas se colgaba).
+        const combos = [[20,0],[0,0],[25,0],[20,25],[10,0],[30,0]];
+        const res = await Promise.all(combos.map(async ([com, bon]) => {
+          try {
+            const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, infoautoId);
+            payloadD.comision = com; payloadD.bonificacion = bon;
+            const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
+            const txt = await r.text();
+            const ok = r.status === 200;
+            let msg = 'OK';
+            if (!ok) { try { const j = JSON.parse(txt); msg = (j.errores && j.errores[0] && j.errores[0].mensaje) || txt.slice(0, 90); } catch (e) { msg = txt.slice(0, 90); } }
+            return { comision: com, bonificacion: bon, status: r.status, resultado: ok ? 'COTIZA ✓' : msg, raw: ok ? txt.slice(0, 1200) : null };
+          } catch (e) { return { comision: com, bonificacion: bon, status: 0, resultado: 'error: ' + e.message, raw: null }; }
+        }));
+        dbg.pruebasComerciales = res.map(({ raw, ...rest }) => rest);
+        const valido = res.find(x => x.status === 200);
+        if (valido) { dbg.comboValido = { comision: valido.comision, bonificacion: valido.bonificacion }; dbg.cotizarRaw = valido.raw; }
       }
     } catch (e) { dbg.error = e.message; }
     return { statusCode: 200, headers, body: JSON.stringify(dbg) };
