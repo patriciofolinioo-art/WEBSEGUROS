@@ -219,13 +219,10 @@ exports.handler = async function (event) {
       rastreadorSat: false,
       rastreadorSatPropio: false,
       accesorios: [],
-      // Descuento estándar de la agencia: 20% (código 29). Antes era 30% (29 + 25 = 20%+10%);
-      // se bajó a 20% para alinear con Provincia/Mercantil (25%) y que Digna deje de salir
-      // demasiado barato. Si conseguís el código de 25% de Digna, reemplazá el 29 (o combiná
-      // 20%+5%) para clavar 25%.
-      descuentosPoliza: [
-        { idDescuento: 29 } // 20%
-      ]
+      // Sin descuento: Digna cotizaba demasiado barato. Se quitó el 20% (código 29) para que
+      // cotice a tarifa plena y suba el precio. Si hiciera falta un RECARGO real (precio POR
+      // ENCIMA de la tarifa), pedir a Digna el código de recargo y agregarlo en este array.
+      descuentosPoliza: []
     };
 
     const resultado = await dignaFetch('/CotizacionAutos/cotizar', {

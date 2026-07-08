@@ -37,17 +37,26 @@
       Posible causa de diferencia: la web manda `40220_ValorDelVehiculo` en 0 (no se pide
       suma asegurada), y Provincia usa su valuación por defecto.
 
-- [x] **Mercantil Andina agregada** al cotizador (`mercantil-cot.js` + línea en `CO_CIAS`).
-      Flujo: login (basic auth) → busca el vehículo en api-vehiculos por nombre+año →
-      cotiza en api-cotiza-auto con `vehiculo.id`. comision=20, bonificacion=25.
-      **Falta para que funcione en vivo:**
-      - [ ] Confirmar la URL real del **login** (token). Hoy asume `…/auth/v1/login`
-            (variable `MERCANTIL_LOGIN_URL`).
-      - [ ] Cargar variables de entorno en Netlify: `MERCANTIL_USER`, `MERCANTIL_PASS`,
-            `MERCANTIL_SUBKEY` (Ocp-Apim-Subscription-Key), `MERCANTIL_PRODUCTOR` (id PAS).
-      - [ ] Está apuntando a **DEV** (`apidev.mercantilandina.com.ar`). Pasar a producción
-            cuando esté ok (constante `HOST` en `mercantil-cot.js`).
+- [x] **Mercantil Andina** agregada (`mercantil-cot.js`). **DESACTIVADA en el cotizador**
+      (línea comentada en `CO_CIAS`, index.html y cotizar.html) hasta destrabar el acceso.
+      Diagnóstico 07/2026 (con el debug ?debug=1, ya quitado): login OK (da token), busca y
+      **encuentra el vehículo** OK, pero al cotizar en `apidev.mercantilandina.com.ar` devuelve
+      **HTTP 403 · MCA007: "No cuenta con permisos para cotizar con esta cuenta de productor"**
+      (productor.id 87139). Las 4 env vars están cargadas y la suscripción "FOLINTST" figura
+      Active. O sea: la API abre, pero el productor 87139 NO está habilitado para cotizar en el
+      entorno de test. **Bloqueado del lado de Mercantil.**
+      **Para destrabar:** que Mercantil (a) habilite al productor 87139 para cotizar, o (b) dé
+      acceso a **producción** (URL + suscripción/subkey productivos). Cuando eso esté:
+      - [ ] Pasar `HOST` a producción en `mercantil-cot.js` (hoy `apidev.mercantilandina.com.ar`).
+      - [ ] Descomentar la línea de Mercantil en `CO_CIAS` (index.html y cotizar.html).
       - [ ] Confirmar código de **uso comercial** (`USO_COMERCIAL`, hoy 2).
+
+- [x] **Provincia — verificado OK (07/2026)**. Con el debug se confirmó que la web SÍ aplica
+      las promociones (`PSPLUS`/`PSTOTAL`) y lee el `premio` correcto. NO había bug de precio
+      inflado: la web usa la API `PS-COTIZACION/2.2/cotizar` que devuelve `planes[].promocionesPorPlan[].premio`
+      (formato distinto al del portal `{content:[importe_premio_1]}`). De hecho sale más barata
+      que el portal porque manda `40220_ValorDelVehiculo=0` y Provincia usa su valuación por
+      defecto. El parser quedó reforzado para tolerar ambos formatos.
 
 - [x] **Digna Seguros agregada** (`digna-cot.js` + `infoauto.json` + línea en `CO_CIAS`,
       color naranja). Resuelve el vehículo 100% local contra `infoauto.json` (códigos

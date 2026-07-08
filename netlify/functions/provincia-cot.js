@@ -16,9 +16,11 @@ const API_KEY     = '84630d93-d8c2-40b3-ad3d-b82773c092b5';
 const CLIENT_ID   = 'ps2';
 const CLIENT_SECRET = 'a0ab7e18-baea-4d38-b22e-f61184960745';
 
-// Bonificación / descuento que aplica el productor, igual al que se carga en el portal PS2.
-// El portal usa 25% de descuento (con 20% de comisión). Si cambia el descuento, editar acá.
-const BONIF_ADICIONAL = 25;
+// Bonificación / descuento que aplica el productor.
+// Subido a 48% (antes 25%, el estándar del portal) por pedido, para bajar el precio de la web.
+// ⚠️ IMPORTANTE: asegurate de poder EMITIR a este descuento; si Provincia solo te habilita menos,
+// el cliente vería un precio que después no podés sostener. Ajustar el número acá si hace falta.
+const BONIF_ADICIONAL = 48;
 
 // Mapa de marcas conocidas nombre → código Provincia
 const MARCA_MAP = {
@@ -144,31 +146,6 @@ exports.handler = async function(event) {
   };
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-
-  // ── DEBUG temporal: abrir en el navegador
-  //    https://sanisidroseguros.com.ar/.netlify/functions/provincia-cot?debug=1
-  //    Devuelve el payload que la web ENVÍA + la respuesta CRUDA de Provincia, para ver los
-  //    nombres de campo reales (importe_premio_1 vs importe_base, etc.). QUITAR tras diagnosticar.
-  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
-    try {
-      const q = event.queryStringParameters || {};
-      const marca = q.marca || 'Ford', modelo = q.modelo || 'Focus', anio = q.anio || '2015';
-      const tokenD = await getToken();
-      const marcaCodD = await buscarCodigoMarca(tokenD, marca, '04100');
-      const modeloCodD = await buscarCodigoModelo(tokenD, marcaCodD, modelo, anio, '04100');
-      const payloadD = construirPayload({ marca, modelo, anio, cp: q.cp || '1642', uso: 'particular' }, marcaCodD, modeloCodD);
-      const respD = await fetch(COTIZAR_URL + '?apikey=' + API_KEY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tokenD, 'apikey': API_KEY },
-        body: JSON.stringify(payloadD)
-      });
-      const rawD = await respD.text();
-      return { statusCode: 200, headers, body: JSON.stringify({ _debug: true, marcaCod: marcaCodD, modeloCod: modeloCodD, provinciaStatus: respD.status, payloadEnviado: payloadD, provinciaRaw: rawD.slice(0, 6000) }) };
-    } catch (e) {
-      return { statusCode: 200, headers, body: JSON.stringify({ _debug: true, error: e.message }) };
-    }
-  }
-
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
 
   try {

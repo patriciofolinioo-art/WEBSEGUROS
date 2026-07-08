@@ -165,8 +165,8 @@ exports.handler = async function (event) {
 
   // ── DEBUG temporal: abrir en el navegador
   //    https://sanisidroseguros.com.ar/.netlify/functions/mercantil-cot?debug=1
-  //    Muestra qué env vars están cargadas (solo SI existen, NO su valor), si obtuvo token,
-  //    si encontró el vehículo y la respuesta cruda de la cotización. QUITAR tras diagnosticar.
+  //    Muestra el productor.id que se usa, si obtiene token, si encuentra el vehículo y la
+  //    respuesta cruda de la cotización. Para verificar el código 15056. QUITAR tras verificar.
   if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
     const dbg = {
       _debug: true,
@@ -175,7 +175,6 @@ exports.handler = async function (event) {
         MERCANTIL_PASS: !!process.env.MERCANTIL_PASS,
         MERCANTIL_SUBKEY: !!process.env.MERCANTIL_SUBKEY,
         MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null,
-        MERCANTIL_LOGIN_URL: process.env.MERCANTIL_LOGIN_URL || ('(default) ' + LOGIN_URL),
         HOST
       }
     };
@@ -190,7 +189,7 @@ exports.handler = async function (event) {
         const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
         dbg.cotizarStatus = r.status;
         dbg.cotizarRaw = (await r.text()).slice(0, 3000);
-        dbg.payloadEnviado = payloadD;
+        dbg.productorEnviado = payloadD.productor;
       }
     } catch (e) { dbg.error = e.message; }
     return { statusCode: 200, headers, body: JSON.stringify(dbg) };
