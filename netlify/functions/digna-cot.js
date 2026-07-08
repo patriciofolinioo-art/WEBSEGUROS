@@ -219,10 +219,12 @@ exports.handler = async function (event) {
       rastreadorSat: false,
       rastreadorSatPropio: false,
       accesorios: [],
-      // Sin descuento: Digna cotizaba demasiado barato. Se quitó el 20% (código 29) para que
-      // cotice a tarifa plena y suba el precio. Si hiciera falta un RECARGO real (precio POR
-      // ENCIMA de la tarifa), pedir a Digna el código de recargo y agregarlo en este array.
-      descuentosPoliza: []
+      // Descuento 20% (código 29). Se probó dejarlo SIN descuento (array vacío) para subir el
+      // precio, pero Digna NO cotiza con descuentosPoliza vacío → se volvió al 20%. Para subir
+      // el precio de verdad hay que pedirle a Digna el código de RECARGO y agregarlo acá.
+      descuentosPoliza: [
+        { idDescuento: 29 } // 20%
+      ]
     };
 
     const resultado = await dignaFetch('/CotizacionAutos/cotizar', {

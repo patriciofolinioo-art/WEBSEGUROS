@@ -16,11 +16,11 @@ const API_KEY     = '84630d93-d8c2-40b3-ad3d-b82773c092b5';
 const CLIENT_ID   = 'ps2';
 const CLIENT_SECRET = 'a0ab7e18-baea-4d38-b22e-f61184960745';
 
-// Bonificación / descuento que aplica el productor.
-// Subido a 48% (antes 25%, el estándar del portal) por pedido, para bajar el precio de la web.
-// ⚠️ IMPORTANTE: asegurate de poder EMITIR a este descuento; si Provincia solo te habilita menos,
-// el cliente vería un precio que después no podés sostener. Ajustar el número acá si hace falta.
-const BONIF_ADICIONAL = 48;
+// Bonificación / descuento que aplica el productor, igual al del portal PS2 (25%).
+// Nota: se probó subirlo a 48% para abaratar la web, pero NO se reflejó en el precio (el
+// descuento efectivo lo maneja la promo PSPLUS/PSTOTAL que Provincia aplica sola), así que
+// se volvió a 25%.
+const BONIF_ADICIONAL = 25;
 
 // Mapa de marcas conocidas nombre → código Provincia
 const MARCA_MAP = {
