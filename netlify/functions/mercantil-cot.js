@@ -180,6 +180,29 @@ exports.handler = async function (event) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+
+  // ── DEBUG temporal: /.netlify/functions/mercantil-cot?debug=1[&marca=Chery&modelo=Tiggo&anio=2017]
+  //    Muestra si encuentra el vehículo en el catálogo y si cotiza. QUITAR tras diagnosticar.
+  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
+    const dbg = { _debug: true, env: { MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null, HOST } };
+    try {
+      const q = event.queryStringParameters || {};
+      const anio = q.anio || '2015';
+      const token = await getToken();
+      const infoautoId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', anio, false);
+      dbg.infoautoElegido = infoautoId;
+      if (infoautoId != null) {
+        const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, infoautoId);
+        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
+        dbg.cotizarStatus = r.status;
+        dbg.cotizarRaw = (await r.text()).slice(0, 2000);
+      } else {
+        dbg.nota = 'No se encontró el vehículo en el catálogo de Mercantil (marca/modelo).';
+      }
+    } catch (e) { dbg.error = e.message; }
+    return { statusCode: 200, headers, body: JSON.stringify(dbg) };
+  }
+
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
 
   let dat;
