@@ -152,10 +152,9 @@ const CO_WA = '5491154522619';
 // El proxy debe devolver { opciones:[{plan,cobertura,premio}], error? } igual que provincia-cot.
 const CO_CIAS = [
   { id:'provincia', nombre:'Provincia Seguros', proxy:'/.netlify/functions/provincia-cot', color:'#8e44ad', soportaBuscarModelo:true }
-  // MERCANTIL desactivado: en el entorno de TEST la cotización devuelve MCA204 (limitación del
-  // sandbox de Mercantil, no del sitio). Reactivar quitando el "//" Y pasando HOST a producción
-  // en mercantil-cot.js cuando Mercantil habilite el acceso real.
-  //,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
+  // MERCANTIL activo. ⚠️ HOST sigue en TEST (apidev) → muestra precios de prueba. Para precios
+  // reales hay que pasar HOST a producción en mercantil-cot.js (falta la URL productiva).
+  ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
   ,{ id:'digna', nombre:'Digna Seguros', proxy:'/.netlify/functions/digna-cot', color:'#ff6600', soportaBuscarModelo:false }
 ];
 
