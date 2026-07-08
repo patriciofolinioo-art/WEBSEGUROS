@@ -1259,7 +1259,7 @@ async function coCotizar(){
   const resultados = await Promise.all(CO_CIAS.map(async (cia)=>{
     try{
       const _ctrl = new AbortController();
-      const _to = setTimeout(()=>_ctrl.abort(), 12000);
+      const _to = setTimeout(()=>_ctrl.abort(), 26000);
       let resp;
       try{
         resp = await fetch(cia.proxy, {
@@ -1275,7 +1275,7 @@ async function coCotizar(){
         cia: cia.id, ciaNombre: cia.nombre, color: cia.color,
         plan: op.plan||'', cobertura: op.cobertura||'', premio: op.premio||0, suma: op.suma||0
       }));
-    }catch(e){ console.warn('['+cia.nombre+'] fetch falló: '+e.message); return []; }
+    }catch(e){ console.warn('['+cia.nombre+'] '+(e.name==='AbortError'?'timeout':e.message)); return []; }
   }));
 
   // Juntar todo y ordenar por precio (más barato primero, sin importar la compañía)

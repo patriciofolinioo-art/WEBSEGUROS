@@ -433,7 +433,7 @@ async function coCotizar(){
   const resultados = await Promise.all(CO_CIAS.map(async (cia)=>{
     try{
       const _ctrl = new AbortController();
-      const _to = setTimeout(()=>_ctrl.abort(), 12000);
+      const _to = setTimeout(()=>_ctrl.abort(), 26000);
       let resp;
       try{
         resp = await fetch(cia.proxy, {

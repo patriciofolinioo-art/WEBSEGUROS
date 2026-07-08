@@ -88,7 +88,10 @@ function mapUso(uso) {
 // Prioriza, si el auto tiene GNC, un resultado cuyo nombre lo mencione; luego match exacto
 // de nombre; luego el que más palabras de la búsqueda contenga.
 async function buscarCodigoVehiculo(token, marca, modelo, anio, gnc) {
-  const q = ((marca || '') + ' ' + (modelo || '')).trim();
+  // Mercantil rechaza el parámetro de búsqueda si es muy largo (HTTP 400 ERR0014). Por eso
+  // usamos marca + las primeras 2 palabras del modelo y capamos el largo total.
+  const modeloCorto = (modelo || '').split(/\s+/).slice(0, 2).join(' ');
+  const q = ((marca || '') + ' ' + modeloCorto).trim().slice(0, 40);
   const url = VEH_BASE + '/?q=' + encodeURIComponent(q) + '&anio=' + encodeURIComponent(anio) + '&tipo=AUTO&limit=20';
   const resp = await fetch(url, { method: 'GET', headers: authHeaders(token) });
   if (!resp.ok) {
