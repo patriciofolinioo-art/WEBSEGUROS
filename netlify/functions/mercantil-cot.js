@@ -104,7 +104,7 @@ async function buscarCodigoVehiculo(token, marca, modelo, anio, gnc) {
     if (conGnc.length) candidatos = conGnc;
   }
   const exacto = candidatos.find(d => (d.nombre || '').toLowerCase() === qLower);
-  if (exacto) return exacto.codigo;
+  if (exacto) return exacto.infoauto;   // la cotización espera el código InfoAuto, no el codigo
 
   // El nombre trae la línea del modelo como "L/16" o "L|14" (año de la línea). Un auto 2015
   // NO puede ser línea 2016 → Mercantil devuelve MCA204 "Error en llamado Vehiculos". Por eso
@@ -129,14 +129,14 @@ async function buscarCodigoVehiculo(token, marca, modelo, anio, gnc) {
     const score = tokenScore * 10 + yearScore;      // el modelo correcto manda; el año desempata
     if (score > mejorScore) { mejorScore = score; mejor = d; }
   });
-  return mejor ? mejor.codigo : null;
+  return mejor ? mejor.infoauto : null;   // devolvemos el código InfoAuto (lo que pide la cotización)
 }
 
 function construirPayload(dat, vehiculoId) {
   return {
     "localidad": { "codigo_postal": parseInt(dat.cp, 10) || 1642 },
     "vehiculo": {
-      "id": Number(vehiculoId),               // código de Mercantil (api-vehiculos)
+      "infoauto": Number(vehiculoId),         // código InfoAuto (lo que espera "Cotizar auto")
       "anio": parseInt(dat.anio, 10) || new Date().getFullYear(),
       "uso": mapUso(dat.uso),
       "gnc": dat.gnc === 'si',
@@ -178,6 +178,29 @@ exports.handler = async function (event) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+
+  // ── DEBUG temporal: https://sanisidroseguros.com.ar/.netlify/functions/mercantil-cot?debug=1
+  //    Confirma que con el vehículo por "infoauto" ya cotiza (status 200). QUITAR tras verificar.
+  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
+    const dbg = { _debug: true, env: { MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null, HOST } };
+    try {
+      const q = event.queryStringParameters || {};
+      const anio = q.anio || '2015';
+      const token = await getToken();
+      dbg.tokenObtenido = !!token;
+      const infoautoId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', anio, false);
+      dbg.infoautoElegido = infoautoId;
+      if (infoautoId != null) {
+        const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, infoautoId);
+        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
+        dbg.cotizarStatus = r.status;
+        dbg.cotizarRaw = (await r.text()).slice(0, 2500);
+        dbg.payloadEnviado = payloadD;
+      }
+    } catch (e) { dbg.error = e.message; }
+    return { statusCode: 200, headers, body: JSON.stringify(dbg) };
+  }
+
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
 
   let dat;
