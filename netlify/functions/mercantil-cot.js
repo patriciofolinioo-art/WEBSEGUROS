@@ -178,49 +178,6 @@ exports.handler = async function (event) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-
-  // ── DEBUG temporal: abrir en el navegador
-  //    https://sanisidroseguros.com.ar/.netlify/functions/mercantil-cot?debug=1
-  //    Muestra el productor.id que se usa, si obtiene token, si encuentra el vehículo y la
-  //    respuesta cruda de la cotización. Para verificar el código 15056. QUITAR tras verificar.
-  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
-    const dbg = {
-      _debug: true,
-      env: {
-        MERCANTIL_USER: !!process.env.MERCANTIL_USER,
-        MERCANTIL_PASS: !!process.env.MERCANTIL_PASS,
-        MERCANTIL_SUBKEY: !!process.env.MERCANTIL_SUBKEY,
-        MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null,
-        HOST
-      }
-    };
-    try {
-      const q = event.queryStringParameters || {};
-      const anio = q.anio || '2015';
-      const token = await getToken();
-      dbg.tokenObtenido = !!token;
-      const vq = ((q.marca || 'Ford') + ' ' + (q.modelo || 'Focus')).trim();
-      const vurl = VEH_BASE + '/?q=' + encodeURIComponent(vq) + '&anio=' + encodeURIComponent(anio) + '&tipo=AUTO&limit=20';
-      const vresp = await fetch(vurl, { headers: authHeaders(token) });
-      const vjson = await vresp.json().catch(() => null);
-      const datos = (vjson && vjson.datos) || [];
-      const vehId = await buscarCodigoVehiculo(token, q.marca || 'Ford', q.modelo || 'Focus', anio, false);
-      const vehObj = datos.find(d => d.codigo === vehId) || datos[0] || null;
-      dbg.vehiculoElegido = vehObj;
-      // Probamos cotizar con los dos identificadores para ver cuál acepta Mercantil.
-      const probar = async (idVeh, etiqueta) => {
-        const payloadD = construirPayload({ cp: q.cp || '1642', anio, uso: 'particular', gnc: 'no' }, idVeh);
-        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payloadD) });
-        return { etiqueta, id: idVeh, status: r.status, raw: (await r.text()).slice(0, 400) };
-      };
-      if (vehObj) {
-        dbg.pruebaCodigo = await probar(vehObj.codigo, 'codigo (api-vehiculos)');
-        if (vehObj.infoauto != null) dbg.pruebaInfoauto = await probar(vehObj.infoauto, 'infoauto');
-      }
-    } catch (e) { dbg.error = e.message; }
-    return { statusCode: 200, headers, body: JSON.stringify(dbg) };
-  }
-
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
 
   let dat;

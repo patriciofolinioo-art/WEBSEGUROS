@@ -124,39 +124,6 @@ exports.handler = async function (event) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-
-  // ── DEBUG temporal: abrir en el navegador
-  //    https://sanisidroseguros.com.ar/.netlify/functions/cliente-dni?debug=1
-  //    Muestra si están cargadas las credenciales de Firebase y si puede leer la base
-  //    (cuántos clientes/pólizas ve). Para diagnosticar por qué el siniestro no encuentra el DNI.
-  //    NO expone datos de clientes. QUITAR tras verificar.
-  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
-    const dbg = {
-      _debug: true,
-      env: {
-        FIREBASE_PROJECT_ID: PROJECT_ID,
-        FIREBASE_CLIENT_EMAIL: !!CLIENT_EMAIL,
-        FIREBASE_PRIVATE_KEY: !!PRIVATE_KEY
-      },
-      // Diagnóstico de la private key SIN exponer su contenido (solo estructura).
-      keyInfo: {
-        length: PRIVATE_KEY.length,
-        empiezaBien: PRIVATE_KEY.startsWith('-----BEGIN PRIVATE KEY-----'),
-        terminaBien: PRIVATE_KEY.trimEnd().endsWith('-----END PRIVATE KEY-----'),
-        tieneSaltosReales: PRIVATE_KEY.includes('\n'),
-        extraidoDeJsonCompleto: KEY_FROM_JSON,
-        emailUsado: CLIENT_EMAIL || null
-      }
-    };
-    try {
-      const d = await getDatos();
-      dbg.lecturaOK = true;
-      dbg.cantidadClientes = (d.clients || []).length;
-      dbg.cantidadPolizas = (d.policies || []).length;
-    } catch (e) { dbg.error = e.message; }
-    return { statusCode: 200, headers, body: JSON.stringify(dbg) };
-  }
-
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
 
   let dni;
