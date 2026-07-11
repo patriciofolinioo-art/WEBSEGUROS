@@ -166,17 +166,24 @@ exports.handler = async function(event) {
         body: JSON.stringify(p)
       }).then(r => r.text());
       const plan22De = (txt) => { try { const j = JSON.parse(txt); const pl = (j.planes || []).find(x => x.plan === '22'); if (!pl) return '(sin plan 22)'; const pr = (pl.promocionesPorPlan || [])[0]; return pr ? (pr.codigoPromocion + ' = $' + pr.premio) : '(sin promo)'; } catch (e) { return 'no-json'; } };
-      // Probamos el campo 40088 (bonificación adicional) con distintos CÓDIGOS y vemos el Plan 22.
-      const probar = async (cod) => {
+      // Probamos dónde mandar la COMISIÓN 22 (codigo_relacion 66) para subir el precio al del portal.
+      const variantes = [
+        { label: 'baseline (comisión de la cuenta ~15%)', apply: () => {} },
+        { label: 'root.codigo_relacion=66', apply: p => { p.codigo_relacion = rel; } },
+        { label: 'bien.codigo_relacion=66', apply: p => { p.bien.codigo_relacion = rel; } },
+        { label: 'datosGenerales.codigo_relacion=66', apply: p => { p.datosGenerales.codigo_relacion = rel; } },
+        { label: 'root.comision=22', apply: p => { p.comision = com; } },
+        { label: 'bien.40089_comision=22', apply: p => { p.bien['40089_comision'] = com; } }
+      ];
+      const res = await Promise.all(variantes.map(async v => {
         const p = JSON.parse(JSON.stringify(base));
-        p.bien['40088_bonifAdicional'] = cod;
-        return { codigo_40088: cod, plan22: plan22De(await post(p)) };
-      };
-      const res = await Promise.all([1, 3, 6, 25].map(probar));
+        v.apply(p);
+        return { variante: v.label, plan22: plan22De(await post(p)) };
+      }));
       return { statusCode: 200, headers, body: JSON.stringify({
         _debug: true,
         autoProbado: marca + ' ' + modelo + ' ' + anio,
-        nota: '40088 -> 1=SIN AJUSTE · 3=10% · 6=25% adicional · 25=valor viejo (inválido)',
+        objetivo: 'que suba al precio de tu portal (comisión 22). La variante que SUBA el precio es el campo correcto.',
         resultados: res
       }) };
     } catch (e) {
