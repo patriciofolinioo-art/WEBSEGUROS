@@ -248,7 +248,8 @@ exports.handler = async function(event) {
     // La suma asegurada puede venir a nivel general de la cotización
     const sumaGeneral = parseFloat(
       cotData.sumaAsegurada ?? cotData.valorAsegurado ?? cotData.capitalAsegurado ??
-      cotData.valorVehiculo ?? cotData.sumaAseg ?? 0
+      cotData.valorVehiculo ?? cotData.sumaAseg ??
+      (((cotData.bienesCotizados || [])[0] || {}).sumaAsegurada) ?? 0
     ) || 0;
     const leerSuma = o => parseFloat(
       o.sumaAsegurada ?? o.valorAsegurado ?? o.capitalAsegurado ??

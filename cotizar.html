@@ -454,6 +454,7 @@ async function coCotizar(){
 
   // Juntar todo y ordenar por precio (más barato primero, sin importar la compañía)
   _coOpc = [].concat(...resultados).sort((a,b)=> a.premio - b.premio);
+  try{console.log('COPLANES',JSON.stringify(_coOpc.map(o=>({cia:o.cia,plan:o.plan,cob:o.cobertura,p:o.premio}))));}catch(e){}
 
   btn.disabled=false; btn.textContent='⚡ Ver precios al instante';
 
@@ -464,9 +465,9 @@ async function coCotizar(){
 }
 
 // ── Filtro/agrupación: RC (1 más barato x cía) · Terceros Completo Full (flagship x cía) · Todo Riesgo (todos) ──
-const CO_FLAGSHIP = { provincia:'TERCEROS COMPLETOS FULL', digna:'TERCEROS COMPLETO PLUS', mercantil:'M PLUS' };
+const CO_FLAGSHIP = { provincia:'TERCEROS COMPLETOS FULL', digna:'2PLUS', mercantil:'M PLUS' };
 function coEsTodoRiesgo(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /TODO RIESGO|MEGA|\bTR\b|TR\./.test(t); }
-function coEsFlagship(op){ const f=CO_FLAGSHIP[op.cia]; return !!f && (op.cobertura||'').toUpperCase().indexOf(f.toUpperCase())>=0; }
+function coEsFlagship(op){ const f=CO_FLAGSHIP[op.cia]; if(!f)return false; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return t.indexOf(f.toUpperCase())>=0; }
 function coAgruparPlanes(ops){
   const usados=new Set();
   const todoRiesgo=ops.filter(o=>coEsTodoRiesgo(o)).sort((a,b)=>a.premio-b.premio);
