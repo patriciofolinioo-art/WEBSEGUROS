@@ -1289,28 +1289,49 @@ async function coCotizar(){
   coRenderPlanes();
 }
 
+// ── Filtro/agrupación: RC (1 más barato x cía) · Terceros Completo Full (flagship x cía) · Todo Riesgo (todos) ──
+const CO_FLAGSHIP = { provincia:'TERCEROS COMPLETOS FULL', digna:'TERCEROS COMPLETO PLUS', mercantil:'M PLUS' };
+function coEsTodoRiesgo(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /TODO RIESGO|MEGA|\bTR\b|TR\./.test(t); }
+function coEsFlagship(op){ const f=CO_FLAGSHIP[op.cia]; return !!f && (op.cobertura||'').toUpperCase().indexOf(f.toUpperCase())>=0; }
+function coAgruparPlanes(ops){
+  const usados=new Set();
+  const todoRiesgo=ops.filter(o=>coEsTodoRiesgo(o)).sort((a,b)=>a.premio-b.premio);
+  todoRiesgo.forEach(o=>usados.add(o));
+  const terceros=[];
+  CO_CIAS.forEach(c=>{ const cand=ops.filter(o=>o.cia===c.id&&!usados.has(o)&&coEsFlagship(o)).sort((a,b)=>b.premio-a.premio); if(cand[0]){terceros.push(cand[0]);usados.add(cand[0]);} });
+  terceros.sort((a,b)=>a.premio-b.premio);
+  const rc=[];
+  CO_CIAS.forEach(c=>{ const cand=ops.filter(o=>o.cia===c.id&&!usados.has(o)).sort((a,b)=>a.premio-b.premio); if(cand[0]){rc.push(cand[0]);usados.add(cand[0]);} });
+  rc.sort((a,b)=>a.premio-b.premio);
+  return [{titulo:'Responsabilidad Civil',items:rc},{titulo:'Terceros Completo',items:terceros},{titulo:'Todo Riesgo',items:todoRiesgo}];
+}
 function coRenderPlanes(){
-  const cont = document.getElementById('co_listaPlanes');
-  const fmt = n => '$'+Number(n).toLocaleString('es-AR');
-  const variasCias = CO_CIAS.length > 1;
-  let html = '<div style="font-size:12px;color:#5a6b7d;margin-bottom:12px;">'+_coDat.marca+' '+_coDat.modelo+' '+_coDat.anio+' · Precios mensuales:</div>';
-  html += '<div style="display:flex;flex-direction:column;gap:8px;max-height:auto;">';
-  _coOpc.forEach((op,i)=>{
-    const planTxt = op.plan ? 'Plan '+op.plan : '';
-    const col = op.color || '#8e44ad';
-    html += '<div style="border:1px solid '+(i===0?col:'#e0e6ec')+';background:'+(i===0?col+'0d':'#f8fafc')+';border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:10px;">'
-      + '<div style="flex:1;min-width:0;">'
-      +   '<div style="font-size:9.5px;font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.3px;">'+(op.ciaNombre||'')+(planTxt?' · '+planTxt:'')+'</div>'
-      +   '<div style="font-size:12px;font-weight:800;color:#13212f;line-height:1.25;">'+(op.cobertura||'Cobertura')+'</div>'
-      +   (op.suma>0 ? '<div style="font-size:10px;color:#8a97a4;margin-top:1px;">Suma asegurada: '+fmt(op.suma)+'</div>' : '')
-      + '</div>'
-      + '<div style="text-align:right;white-space:nowrap;"><div style="font-size:14px;font-weight:800;color:#13212f;">'+fmt(op.premio)+'<span style="font-size:9px;font-weight:400;color:#8a97a4;">/mes</span></div></div>'
-      + '<button onclick="coElegir('+i+')" style="background:'+col+';color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:inherit;">Elegir</button>'
-      + '</div>';
+  const cont=document.getElementById('co_listaPlanes');
+  const fmt=n=>'$'+Number(n).toLocaleString('es-AR');
+  const grupos=coAgruparPlanes(_coOpc);
+  let html='<div style="font-size:12px;color:#5a6b7d;margin-bottom:4px;">'+_coDat.marca+' '+_coDat.modelo+' '+_coDat.anio+' · Precios mensuales:</div>';
+  grupos.forEach(g=>{
+    if(!g.items.length)return;
+    html+='<div style="font-size:11px;font-weight:800;color:#5a6b7d;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;border-bottom:1px solid #e8ecf0;padding-bottom:4px;">'+g.titulo+'</div>';
+    html+='<div style="display:flex;flex-direction:column;gap:8px;">';
+    g.items.forEach(op=>{
+      const i=_coOpc.indexOf(op);
+      const planTxt=op.plan?'Plan '+op.plan:'';
+      const col=op.color||'#8e44ad';
+      html+='<div style="border:1px solid #e0e6ec;background:#f8fafc;border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:10px;">'
+        +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-size:9.5px;font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.3px;">'+(op.ciaNombre||'')+(planTxt?' · '+planTxt:'')+'</div>'
+        +'<div style="font-size:12px;font-weight:800;color:#13212f;line-height:1.25;">'+(op.cobertura||'Cobertura')+'</div>'
+        +(op.suma>0?'<div style="font-size:10px;color:#8a97a4;margin-top:1px;">Suma asegurada: '+fmt(op.suma)+'</div>':'')
+        +'</div>'
+        +'<div style="text-align:right;white-space:nowrap;"><div style="font-size:14px;font-weight:800;color:#13212f;">'+fmt(op.premio)+'<span style="font-size:9px;font-weight:400;color:#8a97a4;">/mes</span></div></div>'
+        +'<button onclick="coElegir('+i+')" style="background:'+col+';color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:inherit;">Elegir</button>'
+        +'</div>';
+    });
+    html+='</div>';
   });
-  html += '</div>';
-  html += '<div style="font-size:10.5px;color:#8a97a4;margin-top:12px;line-height:1.5;text-align:center;">Precios estimados sujetos a verificación de la compañía. Al elegir, un productor matriculado confirma y emite tu póliza.</div>';
-  cont.innerHTML = html;
+  html+='<div style="font-size:10.5px;color:#8a97a4;margin-top:12px;line-height:1.5;text-align:center;">Precios estimados sujetos a verificación de la compañía. Al elegir, un productor matriculado confirma y emite tu póliza.</div>';
+  cont.innerHTML=html;
   document.getElementById('coForm').style.display='none';
   document.getElementById('coResultados').style.display='block';
 }
