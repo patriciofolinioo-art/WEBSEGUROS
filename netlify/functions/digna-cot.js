@@ -35,7 +35,7 @@ const ID_PROVINCIA_BA = 2;    // Buenos Aires — fijo por ahora (decisión toma
 const ID_PERSONA_TIPO = 1;     // Física
 const ID_CONDICION_FISCAL = 1; // Consumidor Final
 const ID_FORMA_COBRO = 1;      // Efectivo (si se ofrece Tarjeta, hay que sumar el descuento 19 obligatorio)
-const ID_CLAUSULA_AJUSTE = 7;  // Sin Ajuste 0%
+const ID_CLAUSULA_AJUSTE = 2;  // Ajuste Hasta 15% (tabla: 1=20% 2=15% 3=25% 4=30% 7=SinAjuste). Igual al portal.
 const ID_AUTO_ORIGEN = 1;      // Nacional (no viene en el Excel, default fijo)
 
 // La vigencia tiene que arrancar el día de la cotización (no puede ser pasada) y dura 1 año.
@@ -219,11 +219,14 @@ exports.handler = async function (event) {
       rastreadorSat: false,
       rastreadorSatPropio: false,
       accesorios: [],
-      // Descuento 20% (código 29). Se probó dejarlo SIN descuento (array vacío) para subir el
-      // precio, pero Digna NO cotiza con descuentosPoliza vacío → se volvió al 20%. Para subir
-      // el precio de verdad hay que pedirle a Digna el código de RECARGO y agregarlo acá.
+      // Configuración comercial igual al portal: descuento 5% + recargo 20% (15%+5%).
+      // Códigos del manual de Digna (mismo campo idDescuento sirve para descuentos y recargos):
+      //   Descuentos: 25=10% · 26=15% · 29=20% · 24=5% · 19=Tarjeta5%(oblig)
+      //   Recargos:   50=5% · 82=10% · 42=15%
       descuentosPoliza: [
-        { idDescuento: 29 } // 20%
+        { idDescuento: 24 }, // Descuento 5%
+        { idDescuento: 42 }, // Recargo 15%  ┐ = recargo 20%
+        { idDescuento: 50 }  // Recargo 5%   ┘
       ]
     };
 
