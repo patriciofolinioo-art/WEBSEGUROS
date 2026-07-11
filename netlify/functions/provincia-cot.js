@@ -16,11 +16,11 @@ const API_KEY     = '84630d93-d8c2-40b3-ad3d-b82773c092b5';
 const CLIENT_ID   = 'ps2';
 const CLIENT_SECRET = 'a0ab7e18-baea-4d38-b22e-f61184960745';
 
-// Bonificación / descuento que aplica el productor, igual al del portal PS2 (25%).
-// Nota: se probó subirlo a 48% para abaratar la web, pero NO se reflejó en el precio (el
-// descuento efectivo lo maneja la promo PSPLUS/PSTOTAL que Provincia aplica sola), así que
-// se volvió a 25%.
-const BONIF_ADICIONAL = 25;
+// Bonificación adicional. ⚠️ El campo 40088 usa el CÓDIGO de la tabla, NO el porcentaje:
+//   1 = SIN AJUSTE · 2 = 5% · 3 = 10% · 4 = 15% · 5 = 20% · 6 = 25% adicional
+// Antes se mandaba 25 (el %), que NO es un código válido → Provincia lo ignoraba (por eso la
+// web salía más cara y subirlo a 48 no cambiaba nada). Para 25% de bonificación va el código 6.
+const BONIF_ADICIONAL = 6;   // código 6 = 25% adicional
 
 // Mapa de marcas conocidas nombre → código Provincia
 const MARCA_MAP = {
@@ -165,18 +165,19 @@ exports.handler = async function(event) {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tokenD, 'apikey': API_KEY },
         body: JSON.stringify(p)
       }).then(r => r.text());
-      // 1) Respuesta CRUDA como cotiza hoy la web (para ver la promo PSPLUS y el premio real)
-      const rawBase = await post(base);
-      // 2) Misma cotización pero mandando comisión 22 (codigo_relacion 66), para ver si cambia
-      const pRel = JSON.parse(JSON.stringify(base)); pRel.codigo_relacion = rel;
-      const rawRel = await post(pRel);
-      const plan22De = (txt) => { try { const j = JSON.parse(txt); const pl = (j.planes || []).find(x => x.plan === '22'); if (!pl) return '(sin plan 22)'; const pr = (pl.promocionesPorPlan || [])[0]; return pr ? (pr.codigoPromocion + ' = ' + pr.premio) : '(sin promo)'; } catch (e) { return 'no-json'; } };
+      const plan22De = (txt) => { try { const j = JSON.parse(txt); const pl = (j.planes || []).find(x => x.plan === '22'); if (!pl) return '(sin plan 22)'; const pr = (pl.promocionesPorPlan || [])[0]; return pr ? (pr.codigoPromocion + ' = $' + pr.premio) : '(sin promo)'; } catch (e) { return 'no-json'; } };
+      // Probamos el campo 40088 (bonificación adicional) con distintos CÓDIGOS y vemos el Plan 22.
+      const probar = async (cod) => {
+        const p = JSON.parse(JSON.stringify(base));
+        p.bien['40088_bonifAdicional'] = cod;
+        return { codigo_40088: cod, plan22: plan22De(await post(p)) };
+      };
+      const res = await Promise.all([1, 3, 6, 25].map(probar));
       return { statusCode: 200, headers, body: JSON.stringify({
         _debug: true,
         autoProbado: marca + ' ' + modelo + ' ' + anio,
-        plan22_hoy: plan22De(rawBase),
-        plan22_con_comision22: plan22De(rawRel),
-        respuestaCruda: rawBase.slice(0, 3500)
+        nota: '40088 -> 1=SIN AJUSTE · 3=10% · 6=25% adicional · 25=valor viejo (inválido)',
+        resultados: res
       }) };
     } catch (e) {
       return { statusCode: 200, headers, body: JSON.stringify({ _debug: true, error: e.message }) };
