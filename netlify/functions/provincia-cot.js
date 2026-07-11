@@ -160,33 +160,24 @@ exports.handler = async function(event) {
       const marcaCodD = await buscarCodigoMarca(tokenD, marca, '04100');
       const modeloCodD = await buscarCodigoModelo(tokenD, marcaCodD, modelo, anio, '04100');
       const base = construirPayload({ marca, modelo, anio, cp: q.cp || '1642', uso: 'particular' }, marcaCodD, modeloCodD);
-      const variantes = [
-        { label: 'baseline (como está hoy)', apply: () => {} },
-        { label: 'root.codigo_relacion', apply: p => { p.codigo_relacion = rel; } },
-        { label: 'bien.codigo_relacion', apply: p => { p.bien.codigo_relacion = rel; } },
-        { label: 'datosGenerales.codigo_relacion', apply: p => { p.datosGenerales.codigo_relacion = rel; } },
-        { label: 'bien.40089_comision', apply: p => { p.bien['40089_comision'] = com; } },
-        { label: 'bien.40087_comision', apply: p => { p.bien['40087_comision'] = com; } }
-      ];
-      const res = await Promise.all(variantes.map(async v => {
-        const p = JSON.parse(JSON.stringify(base));
-        v.apply(p);
-        const r = await fetch(COTIZAR_URL + '?apikey=' + API_KEY, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tokenD, 'apikey': API_KEY },
-          body: JSON.stringify(p)
-        });
-        const txt = await r.text();
-        let plan22 = '?';
-        try {
-          const j = JSON.parse(txt);
-          const pl = (j.planes || []).find(x => x.plan === '22');
-          if (pl) { const pr = (pl.promocionesPorPlan || [])[0]; plan22 = pr ? pr.premio : '(sin promo)'; }
-          else plan22 = '(sin plan 22) ' + (j.error || '');
-        } catch (e) { plan22 = 'HTTP ' + r.status + ' ' + txt.slice(0, 50); }
-        return { variante: v.label, plan22 };
-      }));
-      return { statusCode: 200, headers, body: JSON.stringify({ _debug: true, autoProbado: marca + ' ' + modelo + ' ' + anio, codigo_relacion: rel, resultados: res }) };
+      const post = (p) => fetch(COTIZAR_URL + '?apikey=' + API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tokenD, 'apikey': API_KEY },
+        body: JSON.stringify(p)
+      }).then(r => r.text());
+      // 1) Respuesta CRUDA como cotiza hoy la web (para ver la promo PSPLUS y el premio real)
+      const rawBase = await post(base);
+      // 2) Misma cotización pero mandando comisión 22 (codigo_relacion 66), para ver si cambia
+      const pRel = JSON.parse(JSON.stringify(base)); pRel.codigo_relacion = rel;
+      const rawRel = await post(pRel);
+      const plan22De = (txt) => { try { const j = JSON.parse(txt); const pl = (j.planes || []).find(x => x.plan === '22'); if (!pl) return '(sin plan 22)'; const pr = (pl.promocionesPorPlan || [])[0]; return pr ? (pr.codigoPromocion + ' = ' + pr.premio) : '(sin promo)'; } catch (e) { return 'no-json'; } };
+      return { statusCode: 200, headers, body: JSON.stringify({
+        _debug: true,
+        autoProbado: marca + ' ' + modelo + ' ' + anio,
+        plan22_hoy: plan22De(rawBase),
+        plan22_con_comision22: plan22De(rawRel),
+        respuestaCruda: rawBase.slice(0, 3500)
+      }) };
     } catch (e) {
       return { statusCode: 200, headers, body: JSON.stringify({ _debug: true, error: e.message }) };
     }
