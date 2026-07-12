@@ -1291,7 +1291,7 @@ async function coCotizar(){
 }
 
 // ── Filtro/agrupación: RC (1 más barato x cía) · Terceros Completo Full (flagship x cía) · Todo Riesgo (todos) ──
-const CO_FLAGSHIP = { provincia:['TERCEROS COMPLETOS FULL','TERC. COMP. FULL'], digna:['2PLUS','C3P','TERCEROS COMPLETO PLUS','C4'], mercantil:['M PLUS','MPLUS'] };
+const CO_FLAGSHIP = { provincia:['TERCEROS COMPLETOS FULL','TERC. COMP. FULL'], digna:['2PLENA','2PLUS','C3P','C5','TERCEROS COMPLETO PLUS','C4'], mercantil:['M PLUS','MPLUS'] };
 function coEsTodoRiesgo(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /TODO RIESGO|TODORIESGO|TR\.|\bTR\b| TR |MEGA|\bD1\b|\bD2\b/.test(t); }
 function coEsFlagship(op){ const arr=CO_FLAGSHIP[op.cia]||[]; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return arr.some(f=>t.indexOf(f.toUpperCase())>=0); }
 function coAgruparPlanes(ops){
