@@ -1291,9 +1291,9 @@ async function coCotizar(){
 }
 
 // ── Filtro/agrupación: RC (1 más barato x cía) · Terceros Completo Full (flagship x cía) · Todo Riesgo (todos) ──
-const CO_FLAGSHIP = { provincia:'TERCEROS COMPLETOS FULL', digna:'2PLUS', mercantil:'M PLUS' };
-function coEsTodoRiesgo(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /TODO RIESGO|MEGA|\bTR\b|TR\./.test(t); }
-function coEsFlagship(op){ const f=CO_FLAGSHIP[op.cia]; if(!f)return false; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return t.indexOf(f.toUpperCase())>=0; }
+const CO_FLAGSHIP = { provincia:['TERCEROS COMPLETOS FULL','TERC. COMP. FULL'], digna:['2PLUS','C3P','TERCEROS COMPLETO PLUS','C4'], mercantil:['M PLUS','MPLUS'] };
+function coEsTodoRiesgo(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /TODO RIESGO|TODORIESGO|TR\.|\bTR\b| TR |MEGA|\bD1\b|\bD2\b/.test(t); }
+function coEsFlagship(op){ const arr=CO_FLAGSHIP[op.cia]||[]; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return arr.some(f=>t.indexOf(f.toUpperCase())>=0); }
 function coAgruparPlanes(ops){
   const usados=new Set();
   const todoRiesgo=ops.filter(o=>coEsTodoRiesgo(o)).sort((a,b)=>a.premio-b.premio);
