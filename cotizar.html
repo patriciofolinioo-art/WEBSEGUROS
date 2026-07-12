@@ -468,6 +468,7 @@ async function coCotizar(){
 const CO_FLAGSHIP = { provincia:['TERCEROS COMPLETOS FULL','TERC. COMP. FULL'], digna:['2PLENA','2PLUS','C3P','C5','TERCEROS COMPLETO PLUS','C4'], mercantil:['M PLUS','MPLUS'] };
 function coEsTodoRiesgo(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /TODO RIESGO|TODORIESGO|TR\.|\bTR\b| TR |MEGA|\bD1\b|\bD2\b/.test(t); }
 function coEsFlagship(op){ const arr=CO_FLAGSHIP[op.cia]||[]; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return arr.some(f=>t.indexOf(f.toUpperCase())>=0); }
+function coEsRC(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /RESPONSABILIDAD CIVIL LIMITADA|RC S\/ASIST|RC C\/ASIST|\b0RC\b/.test(t); }
 function coAgruparPlanes(ops){
   const usados=new Set();
   const todoRiesgo=ops.filter(o=>coEsTodoRiesgo(o)).sort((a,b)=>a.premio-b.premio);
@@ -476,7 +477,7 @@ function coAgruparPlanes(ops){
   CO_CIAS.forEach(c=>{ const cand=ops.filter(o=>o.cia===c.id&&!usados.has(o)&&coEsFlagship(o)).sort((a,b)=>b.premio-a.premio); if(cand[0]){terceros.push(cand[0]);usados.add(cand[0]);} });
   terceros.sort((a,b)=>a.premio-b.premio);
   const rc=[];
-  CO_CIAS.forEach(c=>{ const cand=ops.filter(o=>o.cia===c.id&&!usados.has(o)).sort((a,b)=>a.premio-b.premio); if(cand[0]){rc.push(cand[0]);usados.add(cand[0]);} });
+  CO_CIAS.forEach(c=>{ ops.filter(o=>o.cia===c.id&&!usados.has(o)&&coEsRC(o)).forEach(o=>{rc.push(o);usados.add(o);}); });
   rc.sort((a,b)=>a.premio-b.premio);
   return [{titulo:'Responsabilidad Civil',items:rc},{titulo:'Terceros Completo',items:terceros},{titulo:'Todo Riesgo',items:todoRiesgo}];
 }
