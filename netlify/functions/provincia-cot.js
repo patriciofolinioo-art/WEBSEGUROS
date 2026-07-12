@@ -20,7 +20,9 @@ const CLIENT_SECRET = 'a0ab7e18-baea-4d38-b22e-f61184960745';
 //   1 = SIN AJUSTE · 2 = 5% · 3 = 10% · 4 = 15% · 5 = 20% · 6 = 25% adicional
 // Antes se mandaba 25 (el %), que NO es un código válido → Provincia lo ignoraba (por eso la
 // web salía más cara y subirlo a 48 no cambiaba nada). Para 25% de bonificación va el código 6.
-const BONIF_ADICIONAL = 6;   // código 6 = 25% adicional
+const BONIF_ADICIONAL = 4;   // código 4 = 15% adicional. Se bajó de 25% (cód 6) para compensar la
+                             // comisión baja de la cuenta (~10%, la API no deja setearla) y acercar
+                             // el precio al del portal. Si conseguís comisión 22 en la cuenta, volver a 6.
 
 // Mapa de marcas conocidas nombre → código Provincia
 const MARCA_MAP = {
