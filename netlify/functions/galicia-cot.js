@@ -13,6 +13,8 @@
 //      GALICIA_USER        = usuario WCF provisto por GS/SURA
 //      GALICIA_PASS        = clave provista por GS
 //      GALICIA_INSTITUCION = IdInstitucion (nro de institución, ej. 999)
+//      GALICIA_PRODUCTOR   = IdProductor (código del productor en Galicia, ej. 2050)
+//      GALICIA_PRODUCTO    = CodigoProducto asociado al productor (ej. 774)
 //      GALICIA_BASE        = (opcional) URL base. Default: PRE (testing).
 //
 //  ⚠️ Esta integración necesita testeo en vivo (debug ?debug=1) — el $type de .NET y la zona
@@ -44,6 +46,7 @@ const ID_KM_ANIO = 2;            // Hasta 25.000 km/año
 const ID_COCHERA = 3;            // Ninguno
 const ID_CONDICION_FISCAL = 4;   // Consumidor Final
 const ID_TIPO_DOCUMENTO = 96;    // DNI
+const COMISION = 20;             // % de comisión del productor (nodo ProductoComercial)
 // ⚠️ Zona de riesgo: la tabla Localidad tiene 20k filas. Por ahora usamos un default (Buenos Aires).
 //    Afecta el precio por zona; cuando esté OK, resolver IdProvincia/IdLocalidad reales desde el CP.
 const ID_PROVINCIA_DEFAULT = 1;
@@ -105,6 +108,12 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
     VigenciaDesde: desde,
     VigenciaHasta: hasta,
     FormaDePago: null,
+    // Nodo del productor: comisión + códigos que da Galicia. CodigoProducto e IdProductor son obligatorios.
+    ProductoComercial: {
+      CodigoProducto: Number(process.env.GALICIA_PRODUCTO) || 774,
+      Comision: COMISION,
+      IdProductor: Number(process.env.GALICIA_PRODUCTOR) || 0
+    },
     PolizaElectronica: { EmailProductor: 'pfolini.si@gmail.com', EmailOrganizador: 'pfolini.si@gmail.com', EmailCliente: dat.email || 'cliente@web.com' },
     Tomador: {
       $type: T_PERSONA,
