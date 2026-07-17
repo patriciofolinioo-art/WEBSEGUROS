@@ -52,11 +52,15 @@ const ID_LOCALIDAD_DEFAULT = 1;
 
 let _cache = { token: null, exp: 0 };
 
+// Limpia comillas/espacios que a veces quedan al pegar en las env vars de Netlify.
+function limpiar(v) { return (v || '').replace(/^['"\s]+|['"\s]+$/g, ''); }
+
 async function getToken() {
   if (_cache.token && Date.now() < _cache.exp) return _cache.token;
-  const user = process.env.GALICIA_USER, pass = process.env.GALICIA_PASS;
+  const user = limpiar(process.env.GALICIA_USER), pass = limpiar(process.env.GALICIA_PASS);
   if (!user || !pass) throw new Error('Credenciales Galicia no configuradas (GALICIA_USER / GALICIA_PASS).');
-  const body = new URLSearchParams({ grant_type: 'password', Username: user, Password: pass, Store: 'B2B' });
+  const store = limpiar(process.env.GALICIA_STORE) || 'B2B';
+  const body = new URLSearchParams({ grant_type: 'password', Username: user, Password: pass, Store: store });
   const resp = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -189,7 +193,16 @@ exports.handler = async function (event) {
 
   // ── DEBUG temporal: /.netlify/functions/galicia-cot?debug=1[&marca=&modelo=&anio=&cp=]
   if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
-    const dbg = { _debug: true, env: { GALICIA_USER: !!process.env.GALICIA_USER, GALICIA_PASS: !!process.env.GALICIA_PASS, GALICIA_INSTITUCION: process.env.GALICIA_INSTITUCION || null, BASE } };
+    const _u = limpiar(process.env.GALICIA_USER), _p = limpiar(process.env.GALICIA_PASS);
+    const mask = (s) => s ? (s.slice(0, 2) + '***' + s.slice(-2) + ' (len ' + s.length + ')') : null;
+    const dbg = { _debug: true, env: {
+      GALICIA_USER: !!process.env.GALICIA_USER, GALICIA_PASS: !!process.env.GALICIA_PASS,
+      GALICIA_INSTITUCION: process.env.GALICIA_INSTITUCION || null, BASE,
+      userVista: mask(_u), passLen: _p ? _p.length : 0,
+      store: limpiar(process.env.GALICIA_STORE) || 'B2B',
+      userTeniaEspaciosOComillas: (process.env.GALICIA_USER || '') !== _u,
+      passTeniaEspaciosOComillas: (process.env.GALICIA_PASS || '') !== _p
+    } };
     try {
       const q = event.queryStringParameters || {};
       const marca = q.marca || 'Ford', modelo = q.modelo || 'Focus', anio = q.anio || '2015';
