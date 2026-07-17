@@ -219,14 +219,14 @@ exports.handler = async function (event) {
       rastreadorSat: false,
       rastreadorSatPropio: false,
       accesorios: [],
-      // Configuración comercial igual al portal: descuento 5% + recargo 20% (15%+5%).
+      // Configuración comercial igual al portal: descuento 5% + recargo 25% (15%+10%).
       // Códigos del manual de Digna (mismo campo idDescuento sirve para descuentos y recargos):
       //   Descuentos: 25=10% · 26=15% · 29=20% · 24=5% · 19=Tarjeta5%(oblig)
       //   Recargos:   50=5% · 82=10% · 42=15%
       descuentosPoliza: [
         { idDescuento: 24 }, // Descuento 5%
-        { idDescuento: 42 }, // Recargo 15%  ┐ = recargo 20%
-        { idDescuento: 50 }  // Recargo 5%   ┘
+        { idDescuento: 42 }, // Recargo 15%  ┐ = recargo 25%
+        { idDescuento: 82 }  // Recargo 10%  ┘
       ]
     };
 
