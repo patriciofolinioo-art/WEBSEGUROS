@@ -156,9 +156,9 @@ const CO_CIAS = [
   // reales hay que pasar HOST a producción en mercantil-cot.js (falta la URL productiva).
   ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
   ,{ id:'digna', nombre:'Digna Seguros', proxy:'/.netlify/functions/digna-cot', color:'#ff6600', soportaBuscarModelo:false }
-  // GALICIA — nueva, apunta a PRE (testing). Reactivar quitando el "//" cuando el debug (?debug=1) cotice OK
-  // y cargar env vars GALICIA_USER/PASS/INSTITUCION en Netlify.
-  //,{ id:'galicia', nombre:'Galicia Seguros', proxy:'/.netlify/functions/galicia-cot', color:'#e30613', soportaBuscarModelo:false }
+  // GALICIA — activa. Apunta a PRE (testing) por defecto; para precios reales cargar GALICIA_BASE
+  // con la URL de producción en Netlify. Si falla, no rompe las otras cías (se ignora su error).
+  ,{ id:'galicia', nombre:'Galicia Seguros', proxy:'/.netlify/functions/galicia-cot', color:'#e30613', soportaBuscarModelo:false }
 ];
 
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}
@@ -450,7 +450,7 @@ async function coCotizar(){
       // Etiquetamos cada plan con la compañía de origen
       return json.opciones.map(op => ({
         cia: cia.id, ciaNombre: cia.nombre, color: cia.color,
-        plan: op.plan||'', cobertura: op.cobertura||'', premio: op.premio||0, suma: op.suma||0
+        plan: op.plan||'', cobertura: op.cobertura||'', premio: op.premio||0, suma: op.suma||0, grupo: op.grupo||''
       }));
     }catch(e){ console.warn('['+cia.nombre+'] fetch falló: '+e.message); return []; }
   }));
@@ -469,9 +469,10 @@ async function coCotizar(){
 
 // ── Filtro/agrupación: RC (1 más barato x cía) · Terceros Completo Full (flagship x cía) · Todo Riesgo (todos) ──
 const CO_FLAGSHIP = { provincia:['TERCEROS COMPLETOS FULL','TERC. COMP. FULL'], digna:['2PLENA','2PLUS','C3P','C5','TERCEROS COMPLETO PLUS','C4'], mercantil:['M PLUS','MPLUS'] };
-function coEsTodoRiesgo(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /TODO RIESGO|TODORIESGO|TR\.|\bTR\b| TR |MEGA|\bD1\b|\bD2\b/.test(t); }
-function coEsFlagship(op){ const arr=CO_FLAGSHIP[op.cia]||[]; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return arr.some(f=>t.indexOf(f.toUpperCase())>=0); }
-function coEsRC(op){ const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /RESPONSABILIDAD CIVIL LIMITADA|RC S\/ASIST|RC C\/ASIST|\b0RC\b/.test(t); }
+// Si el backend ya clasificó (campo grupo, ej. Galicia), se respeta; si no, se detecta por texto.
+function coEsTodoRiesgo(op){ if(op.grupo) return op.grupo==='todoriesgo'; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /TODO RIESGO|TODORIESGO|TR\.|\bTR\b| TR |MEGA|\bD1\b|\bD2\b/.test(t); }
+function coEsFlagship(op){ if(op.grupo) return op.grupo==='flagship'; const arr=CO_FLAGSHIP[op.cia]||[]; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return arr.some(f=>t.indexOf(f.toUpperCase())>=0); }
+function coEsRC(op){ if(op.grupo) return op.grupo==='rc'; const t=((op.cobertura||'')+' '+(op.plan||'')).toUpperCase(); return /RESPONSABILIDAD CIVIL LIMITADA|RC S\/ASIST|RC C\/ASIST|\b0RC\b/.test(t); }
 function coAgruparPlanes(ops){
   const usados=new Set();
   const todoRiesgo=ops.filter(o=>coEsTodoRiesgo(o)).sort((a,b)=>a.premio-b.premio);

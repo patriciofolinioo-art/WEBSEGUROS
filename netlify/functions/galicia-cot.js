@@ -31,12 +31,10 @@ const COTIZAR_URL = BASE + '/Motor/api/TechnicalPricing/Cotizar';
 const T_PERSONA  = 'Motor.Areas.SeguroNuevo.Version3.TechnicalPricing.Models.Cotizacion.Input.PersonaFisica, Motor, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null';
 const T_ITEMAUTO = 'Motor.Areas.SeguroNuevo.Version3.TechnicalPricing.Models.Cotizacion.Input.ItemAuto, Motor, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null';
 
-// Coberturas que cotizamos (una llamada por cada una). Códigos de la tabla de conversión de GS.
-const COBERTURAS = [
-  { idCobertura: 1,  nombre: 'Responsabilidad Civil',  cobertura: 'RESPONSABILIDAD CIVIL' },
-  { idCobertura: 4,  nombre: 'Terceros Completo',      cobertura: 'TERCEROS COMPLETO (C)' },
-  { idCobertura: 74, nombre: 'Todo Riesgo',            cobertura: 'TODO RIESGO (deducible 2%)' }
-];
+// IdCobertura 99 = "todas": en UNA sola llamada Galicia devuelve TODAS las coberturas
+// (RC, Terceros Completo variantes A/B/B1/C.Clima, y Todo Riesgo D/D1/D2...).
+// La respuesta trae Body.ProductosTecnicos[] con DetalleCobertura (Codigo/Descripcion) + PremioTotal.
+const ID_COBERTURA_TODAS = 99;
 
 // Valores fijos / defaults (confirmar/ajustar con GS)
 const ID_RC = 6;                 // R.C. Clásica (sin límite por persona)
@@ -99,6 +97,7 @@ function fechasVigencia() {
 }
 
 function construirPayload(dat, idInfoAuto, idCobertura) {
+  idCobertura = idCobertura || ID_COBERTURA_TODAS;
   const { desde, hasta } = fechasVigencia();
   const cp = String(dat.cp || '1001');
   return {
@@ -145,12 +144,39 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
   };
 }
 
-// Extrae premio + suma de la respuesta de cotización de Galicia.
-function parsearPremio(cotData) {
-  const m = cotData && (cotData.Message || cotData.message || cotData);
-  const premio = Number(m && (m.PremioTotal ?? m.premioTotal)) || 0;
-  const suma = Number(m && (m.SumaAsegurada ?? m.sumaAsegurada ?? (m.ItemAuto && m.ItemAuto.SumaAsegurada))) || 0;
-  return { premio, suma };
+// Parsea la respuesta de Galicia (StatusResponse -> Body.ProductosTecnicos[]).
+// Cada producto = una cobertura con su Codigo/Descripcion y PremioTotal.
+// Devuelve [{ plan, cobertura, premio, suma }] con TODAS las coberturas (el frontend agrupa/filtra).
+// Clasifica una cobertura de Galicia por su código de letra (esquema SURA):
+//   A*  -> RC (Resp. Civil únicamente)
+//   C*  -> Terceros Completo Full "C.Clima" (el flagship que se muestra)
+//   D*  -> Todo Riesgo (todas se muestran)
+//   B*  -> intermedios (Terceros parciales) -> ocultos
+function grupoGalicia(codigo) {
+  const c = (codigo || '').toUpperCase().trim();
+  if (c[0] === 'A') return 'rc';
+  if (c[0] === 'D') return 'todoriesgo';
+  if (c[0] === 'C') return 'flagship';
+  return 'otro';
+}
+
+function parsearProductos(resp) {
+  const body = resp && (resp.Body || resp.body || resp);
+  const lista = (body && (body.ProductosTecnicos || body.productosTecnicos)) || [];
+  const out = [];
+  for (const p of lista) {
+    const det = p.DetalleCobertura || p.detalleCobertura || {};
+    const codigo = (det.Codigo || det.codigo || '').toString().trim();
+    const desc = (det.Descripcion || det.descripcion || det['Descripción'] || '').toString().trim();
+    const premio = Number(p.PremioTotal ?? p.premioTotal ?? p.PremioSinIva) || 0;
+    const casco = p.PrimaCasco || p.primaCasco || {};
+    const suma = Number(casco.SumaAsegurada ?? casco.sumaAsegurada) || 0;
+    if (premio > 0) {
+      // plan = código de Galicia (A / B / B1 / C.Clima / D / D1...), cobertura = descripción legible
+      out.push({ plan: codigo || desc, cobertura: desc || codigo, premio, suma, grupo: grupoGalicia(codigo) });
+    }
+  }
+  return out.sort((a, b) => a.premio - b.premio);
 }
 
 exports.handler = async function (event) {
@@ -172,10 +198,12 @@ exports.handler = async function (event) {
       const idInfoAuto = buscarIdInfoAuto(marca, modelo);
       dbg.idInfoAuto = idInfoAuto;
       if (idInfoAuto != null) {
-        const payload = construirPayload({ marca, modelo, anio, cp: q.cp || '1001', uso: 'particular' }, idInfoAuto, 4);
+        const payload = construirPayload({ marca, modelo, anio, cp: q.cp || '1001', uso: 'particular' }, idInfoAuto, ID_COBERTURA_TODAS);
         const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
         dbg.cotizarStatus = r.status;
-        dbg.cotizarRaw = (await r.text()).slice(0, 3000);
+        const raw = await r.text();
+        try { dbg.coberturas = parsearProductos(JSON.parse(raw)); } catch (e) { dbg.parseError = e.message; }
+        dbg.cotizarRaw = raw.slice(0, 4000);
         dbg.payloadEnviado = payload;
       } else { dbg.nota = 'vehículo no encontrado en infoauto.json'; }
     } catch (e) { dbg.error = e.message; }
@@ -198,20 +226,13 @@ exports.handler = async function (event) {
     }
     const token = await getToken();
 
-    // Una llamada por cobertura, en paralelo.
-    const resultados = await Promise.all(COBERTURAS.map(async (cob) => {
-      try {
-        const payload = construirPayload(dat, idInfoAuto, cob.idCobertura);
-        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
-        if (!r.ok) return null;
-        const j = JSON.parse(await r.text());
-        const { premio, suma } = parsearPremio(j);
-        if (premio > 0) return { plan: cob.nombre, cobertura: cob.cobertura, premio, suma };
-        return null;
-      } catch (e) { return null; }
-    }));
-
-    const opciones = resultados.filter(Boolean).sort((a, b) => a.premio - b.premio);
+    // UNA sola llamada con IdCobertura 99 -> Galicia devuelve todas las coberturas.
+    const payload = construirPayload(dat, idInfoAuto, ID_COBERTURA_TODAS);
+    const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
+    if (!r.ok) {
+      return { statusCode: 200, headers, body: JSON.stringify({ error: 'Galicia HTTP ' + r.status, opciones: [] }) };
+    }
+    const opciones = parsearProductos(JSON.parse(await r.text()));
     if (!opciones.length) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Sin opciones de Galicia para este vehículo', opciones: [] }) };
     }
