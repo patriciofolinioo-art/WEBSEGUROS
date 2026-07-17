@@ -156,6 +156,9 @@ const CO_CIAS = [
   // reales hay que pasar HOST a producción en mercantil-cot.js (falta la URL productiva).
   ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
   ,{ id:'digna', nombre:'Digna Seguros', proxy:'/.netlify/functions/digna-cot', color:'#ff6600', soportaBuscarModelo:false }
+  // GALICIA — nueva, apunta a PRE (testing). Reactivar quitando el "//" cuando el debug (?debug=1) cotice OK
+  // y cargar env vars GALICIA_USER/PASS/INSTITUCION en Netlify.
+  //,{ id:'galicia', nombre:'Galicia Seguros', proxy:'/.netlify/functions/galicia-cot', color:'#e30613', soportaBuscarModelo:false }
 ];
 
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}
