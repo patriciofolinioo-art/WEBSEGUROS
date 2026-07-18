@@ -333,6 +333,14 @@
   .co-lbl{display:block;font-size:11px;font-weight:700;color:#5a6b7d;margin-bottom:4px;}
   .co-inp{width:100%;padding:10px 12px;border:1px solid #d5dde5;border-radius:9px;font-size:13px;font-family:inherit;box-sizing:border-box;background:#fff;color:#1a2a3a;}
   .co-inp:focus{outline:none;border-color:#8e44ad;}
+  @keyframes coSpin{to{transform:rotate(360deg)}}
+  .co-spin{display:inline-block;width:14px;height:14px;border:2px solid #d8dee6;border-top-color:#8e44ad;border-radius:50%;animation:coSpin .7s linear infinite;vertical-align:middle;}
+  .co-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;border:1px solid #e0e6ec;background:#fff;color:#5a6b7d;}
+  .co-chip.ok{border-color:#bfe3cb;background:#f0faf3;color:#1a6e3c;}
+  .co-chip.sin{border-color:#e4d4b0;background:#fbf7ec;color:#8a7a45;}
+  .co-chip.err{border-color:#f0c8c8;background:#fdf1f1;color:#b23b3b;}
+  @keyframes coFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .co-card{animation:coFadeIn .28s ease both;}
 </style>
 
 
@@ -990,6 +998,7 @@ const CO_CIAS = [
 ];
 
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}
+let _coPend = 0, _coEstado = {}; // _coPend: compañías que faltan responder · _coEstado: estado por cía (para chips en vivo)
 let _coSearchMode = false;      // true cuando los modelos vienen de la búsqueda en vivo (sin paso de versión)
 let _coModeloMap = null;        // Map: modelo base -> [{n, c, version}] (derivado de VEHIC_PAR para la marca elegida)
 let _coCacheProv = {};          // cache de versiones de Provincia por "marca|anio" (null = sin datos)
@@ -1256,41 +1265,47 @@ async function coCotizar(){
 
   const btn = document.getElementById('co_btnCotizar');
   btn.disabled=true;
-  btn.textContent = CO_CIAS.length>1 ? '⟳ Consultando compañías…' : '⟳ Consultando Provincia…';
+  btn.textContent = '⟳ Buscando precios…';
 
-  // Consultar TODAS las compañías en paralelo. Cada una aporta sus planes etiquetados.
-  const resultados = await Promise.all(CO_CIAS.map(async (cia)=>{
-    try{
-      const _ctrl = new AbortController();
-      const _to = setTimeout(()=>_ctrl.abort(), 26000);
-      let resp;
-      try{
-        resp = await fetch(cia.proxy, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify(_coDat), signal:_ctrl.signal
-        });
-      }finally{ clearTimeout(_to); }
-      const json = await resp.json();
-      if(json.error){ console.warn('['+cia.nombre+'] '+json.error); return []; }
-      if(!json.opciones || !json.opciones.length){ console.warn('['+cia.nombre+'] sin opciones (HTTP '+resp.status+')'); return []; }
-      // Etiquetamos cada plan con la compañía de origen
-      return json.opciones.map(op => ({
-        cia: cia.id, ciaNombre: cia.nombre, color: cia.color,
-        plan: op.plan||'', cobertura: op.cobertura||'', premio: op.premio||0, suma: op.suma||0, grupo: op.grupo||''
-      }));
-    }catch(e){ console.warn('['+cia.nombre+'] '+(e.name==='AbortError'?'timeout':e.message)); return []; }
-  }));
+  // Estado por compañía (para mostrar chips en vivo) y lista acumulada
+  _coOpc = [];
+  _coPend = CO_CIAS.length;
+  _coEstado = {};
+  CO_CIAS.forEach(c=>{ _coEstado[c.id] = { nombre:c.nombre, color:c.color, estado:'pendiente' }; });
 
-  // Juntar todo y ordenar por precio (más barato primero, sin importar la compañía)
-  _coOpc = [].concat(...resultados).sort((a,b)=> a.premio - b.premio);
-  try{console.log('COPLANES',JSON.stringify(_coOpc.map(o=>({cia:o.cia,plan:o.plan,cob:o.cobertura,p:o.premio}))));}catch(e){}
-
-  btn.disabled=false; btn.textContent='⚡ Ver precios al instante';
-
-  if(!_coOpc.length){
-    return _coErr('No se obtuvieron precios para este vehículo. Probá por WhatsApp y te ayudamos.');
-  }
+  // Mostrar de una el panel de resultados en modo "cargando"
+  document.getElementById('coForm').style.display='none';
+  document.getElementById('coResultados').style.display='block';
   coRenderPlanes();
+
+  // Consultar TODAS en paralelo pero renderizar a medida que cada una responde (progresivo)
+  CO_CIAS.forEach(cia=>{
+    coConsultarCia(cia).then(ops=>{
+      _coEstado[cia.id].estado = ops.length ? 'ok' : 'sin';
+      if(ops.length){ _coOpc = _coOpc.concat(ops).sort((a,b)=> a.premio - b.premio); }
+    }).catch(()=>{ _coEstado[cia.id].estado = 'error'; })
+    .finally(()=>{ _coPend--; coRenderPlanes(); });
+  });
+}
+
+// Consulta a una compañía y devuelve sus opciones etiquetadas (o [] si falla/sin precios)
+async function coConsultarCia(cia){
+  const _ctrl = new AbortController();
+  const _to = setTimeout(()=>_ctrl.abort(), 26000);
+  try{
+    const resp = await fetch(cia.proxy, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(_coDat), signal:_ctrl.signal
+    });
+    const json = await resp.json();
+    if(json.error){ console.warn('['+cia.nombre+'] '+json.error); return []; }
+    if(!json.opciones || !json.opciones.length){ console.warn('['+cia.nombre+'] sin opciones (HTTP '+resp.status+')'); return []; }
+    return json.opciones.map(op => ({
+      cia: cia.id, ciaNombre: cia.nombre, color: cia.color,
+      plan: op.plan||'', cobertura: op.cobertura||'', premio: op.premio||0, suma: op.suma||0, grupo: op.grupo||''
+    }));
+  }catch(e){ console.warn('['+cia.nombre+'] '+(e.name==='AbortError'?'timeout':e.message)); return []; }
+  finally{ clearTimeout(_to); }
 }
 
 // ── Filtro/agrupación: RC (1 más barato x cía) · Terceros Completo Full (flagship x cía) · Todo Riesgo (todos) ──
@@ -1314,32 +1329,54 @@ function coAgruparPlanes(ops){
 function coRenderPlanes(){
   const cont=document.getElementById('co_listaPlanes');
   const fmt=n=>'$'+Number(n).toLocaleString('es-AR');
+  const cargando = _coPend>0;
   const grupos=coAgruparPlanes(_coOpc);
-  let html='<div style="font-size:12px;color:#5a6b7d;margin-bottom:4px;">'+_coDat.marca+' '+_coDat.modelo+' '+_coDat.anio+' · Precios mensuales:</div>';
+  let html='<div style="font-size:12px;color:#5a6b7d;margin-bottom:8px;">'+_coDat.marca+' '+_coDat.modelo+' '+_coDat.anio+' · Precios mensuales:</div>';
+
+  // Chips de estado por compañía (en vivo)
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">';
+  CO_CIAS.forEach(c=>{
+    const e=(_coEstado[c.id]||{}).estado||'pendiente';
+    if(e==='pendiente') html+='<span class="co-chip"><span class="co-spin"></span>'+c.nombre+'</span>';
+    else if(e==='ok')   html+='<span class="co-chip ok">✓ '+c.nombre+'</span>';
+    else if(e==='sin')  html+='<span class="co-chip sin">— '+c.nombre+'</span>';
+    else                html+='<span class="co-chip err">✕ '+c.nombre+'</span>';
+  });
+  html+='</div>';
+
+  let hayItems=false;
   grupos.forEach(g=>{
     if(!g.items.length)return;
-    html+='<div style="font-size:11px;font-weight:800;color:#5a6b7d;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;border-bottom:1px solid #e8ecf0;padding-bottom:4px;">'+g.titulo+'</div>';
+    hayItems=true;
+    html+='<div style="font-size:12px;font-weight:800;color:#5a6b7d;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;border-bottom:1px solid #e8ecf0;padding-bottom:4px;">'+g.titulo+'</div>';
     html+='<div style="display:flex;flex-direction:column;gap:8px;">';
-    g.items.forEach(op=>{
+    g.items.forEach((op,idx)=>{
       const i=_coOpc.indexOf(op);
       const planTxt=op.plan?'Plan '+op.plan:'';
       const col=op.color||'#8e44ad';
-      html+='<div style="border:1px solid #e0e6ec;background:#f8fafc;border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:10px;">'
+      const barato = idx===0 && g.items.length>1; // el más barato de la sección
+      html+='<div class="co-card" style="position:relative;border:1px solid '+(barato?col:'#e0e6ec')+';background:#f8fafc;border-radius:11px;padding:12px 13px;display:flex;align-items:center;gap:10px;">'
+        +(barato?'<div style="position:absolute;top:-8px;left:12px;background:'+col+';color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:999px;letter-spacing:.3px;">★ MEJOR PRECIO</div>':'')
         +'<div style="flex:1;min-width:0;">'
-        +'<div style="font-size:9.5px;font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.3px;">'+(op.ciaNombre||'')+(planTxt?' · '+planTxt:'')+'</div>'
-        +'<div style="font-size:12px;font-weight:800;color:#13212f;line-height:1.25;">'+(op.cobertura||'Cobertura')+'</div>'
-        +(op.suma>0?'<div style="font-size:10px;color:#8a97a4;margin-top:1px;">Suma asegurada: '+fmt(op.suma)+'</div>':'')
+        +'<div style="font-size:11px;font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.3px;">'+(op.ciaNombre||'')+(planTxt?' · '+planTxt:'')+'</div>'
+        +'<div style="font-size:13px;font-weight:800;color:#13212f;line-height:1.25;">'+(op.cobertura||'Cobertura')+'</div>'
+        +(op.suma>0?'<div style="font-size:11px;color:#8a97a4;margin-top:1px;">Suma asegurada: '+fmt(op.suma)+'</div>':'')
         +'</div>'
-        +'<div style="text-align:right;white-space:nowrap;"><div style="font-size:14px;font-weight:800;color:#13212f;">'+fmt(op.premio)+'<span style="font-size:9px;font-weight:400;color:#8a97a4;">/mes</span></div></div>'
-        +'<button onclick="coElegir('+i+')" style="background:'+col+';color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:inherit;">Elegir</button>'
+        +'<div style="text-align:right;white-space:nowrap;"><div style="font-size:15px;font-weight:800;color:#13212f;">'+fmt(op.premio)+'<span style="font-size:10px;font-weight:400;color:#8a97a4;">/mes</span></div></div>'
+        +'<button onclick="coElegir('+i+')" style="background:'+col+';color:#fff;border:none;border-radius:8px;padding:9px 13px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:inherit;">Elegir</button>'
         +'</div>';
     });
     html+='</div>';
   });
-  html+='<div style="font-size:10.5px;color:#8a97a4;margin-top:12px;line-height:1.5;text-align:center;">Precios estimados sujetos a verificación de la compañía. Al elegir, un productor matriculado confirma y emite tu póliza.</div>';
+
+  if(cargando){
+    html+='<div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:#8a97a4;margin-top:'+(hayItems?'14px':'24px')+';padding:'+(hayItems?'0':'20px 0')+';"><span class="co-spin"></span>'+(hayItems?'Buscando más precios…':'Consultando compañías, aguardá unos segundos…')+'</div>';
+  } else if(!hayItems){
+    html+='<div style="font-size:13px;color:#b23b3b;text-align:center;margin-top:20px;padding:16px;background:#fdf1f1;border-radius:10px;">No se obtuvieron precios para este vehículo.<br>Escribinos por WhatsApp y te ayudamos al instante.</div>';
+  }
+
+  html+='<div style="font-size:12px;color:#8a97a4;margin-top:12px;line-height:1.5;text-align:center;">Precios estimados sujetos a verificación de la compañía. Al elegir, un productor matriculado confirma y emite tu póliza.</div>';
   cont.innerHTML=html;
-  document.getElementById('coForm').style.display='none';
-  document.getElementById('coResultados').style.display='block';
 }
 
 async function coElegir(i){
