@@ -64,7 +64,8 @@ async function dignaFetch(path, { method = 'GET', headers = {}, body } = {}) {
   });
   const json = await resp.json().catch(() => null);
   if (!resp.ok || (json && json.error)) {
-    const detalle = (json && json.error) || '';
+    let detalle = (json && json.error) || '';
+    if (detalle && typeof detalle === 'object') detalle = JSON.stringify(detalle);
     throw new Error('Digna ' + path + ' -> HTTP ' + resp.status + ' ' + detalle);
   }
   if (json === null) throw new Error('Digna ' + path + ' -> respuesta no es JSON válido');
@@ -219,14 +220,15 @@ exports.handler = async function (event) {
       rastreadorSat: false,
       rastreadorSatPropio: false,
       accesorios: [],
-      // Configuración comercial igual al portal: descuento 5% + recargo 25% (15%+10%).
+      // Configuración comercial igual al portal: descuento 5% + recargo 20% (15%+5%).
+      // (El recargo 25% apilando 42+82 hacía que Digna rechazara la cotización → se volvió a 42+50.)
       // Códigos del manual de Digna (mismo campo idDescuento sirve para descuentos y recargos):
       //   Descuentos: 25=10% · 26=15% · 29=20% · 24=5% · 19=Tarjeta5%(oblig)
       //   Recargos:   50=5% · 82=10% · 42=15%
       descuentosPoliza: [
         { idDescuento: 24 }, // Descuento 5%
-        { idDescuento: 42 }, // Recargo 15%  ┐ = recargo 25%
-        { idDescuento: 82 }  // Recargo 10%  ┘
+        { idDescuento: 42 }, // Recargo 15%  ┐ = recargo 20%
+        { idDescuento: 50 }  // Recargo 5%   ┘
       ]
     };
 
