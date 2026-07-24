@@ -94,10 +94,13 @@ function buscarIdInfoAuto(marca, textoVersion) {
 function mapUso(uso) { return uso === 'comercial' ? 15 : 1; } // 1 Particular / 15 Comercial
 
 function fechasVigencia() {
-  const hoy = new Date();
-  const desde = hoy.toISOString().slice(0, 10);
-  const en1 = new Date(hoy); en1.setFullYear(en1.getFullYear() + 1);
-  return { desde, hasta: en1.toISOString().slice(0, 10) };
+  // Netlify corre en UTC; usamos la fecha de Argentina (UTC-3) para no adelantar el día.
+  const desde = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
+  const hasta = new Date(desde + 'T12:00:00Z');
+  hasta.setUTCFullYear(hasta.getUTCFullYear() + 1);
+  return { desde, hasta: hasta.toISOString().slice(0, 10) };
 }
 
 function construirPayload(dat, idInfoAuto, idCobertura) {
