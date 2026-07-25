@@ -167,6 +167,9 @@ const CO_CIAS = [
   // GALICIA — activa. Apunta a PRE (testing) por defecto; para precios reales cargar GALICIA_BASE
   // con la URL de producción en Netlify. Si falla, no rompe las otras cías (se ignora su error).
   ,{ id:'galicia', nombre:'Galicia Seguros', proxy:'/.netlify/functions/galicia-cot', color:'#e30613', soportaBuscarModelo:false }
+  // PARANÁ (SOAP) — lista. Reactivar quitando el "//" cuando el debug (?debug=1) cotice OK y estén
+  // cargadas las env vars PARANA_SISTEMA_ORIGEN y PARANA_PRODUCTOR en Netlify.
+  //,{ id:'parana', nombre:'Paraná Seguros', proxy:'/.netlify/functions/parana-cot', color:'#0072bc', soportaBuscarModelo:false }
 ];
 
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}
