@@ -23,7 +23,7 @@ const PARANA_VEHIC = VEH.PARANA_VEHIC || {};
 
 const BASE = (process.env.PARANA_BASE || 'http://ws.paranaseguros.com.ar/PARANA_COMERCIAL_PRUE').replace(/\/+$/, '');
 const COTIZAR_URL = BASE + '/servlet/ar.com.glmsa.seguros.comercial.awscotizarautomotores';
-const SOAP_ACTION = 'http://tempuri.org/WSCotizarAutomotores.Execute';
+const SOAP_ACTION = 'http://tempuri.org/action/AWSCOTIZARAUTOMOTORES.Execute'; // del WSDL
 
 // Config comercial. Defaults tomados de TablasCotizacion (Paraná) para póliza Individual Mensual.
 //   Plan Comercial NPM · Modo Facturación NPM · Condición Pago 201 · IVA 5 (Consumidor Final)
@@ -37,6 +37,7 @@ const CAT_IVA        = process.env.PARANA_CAT_IVA || '5';   // 5 = Consumidor Fi
 const FORMA_PAGO     = process.env.PARANA_FORMA_PAGO || '0';
 const MODO_FACT      = process.env.PARANA_MODO_FACT || 'NPM';
 const COND_PAGO      = process.env.PARANA_COND_PAGO || '201';
+const TIPO_USO       = process.env.PARANA_TIPO_USO || '1';   // 1 = Particular (ajustar si Paraná usa otro código)
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -44,12 +45,11 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-// Fecha de vigencia en hora de Argentina (UTC-3), formato YYYYMMDD (ajustar si Paraná pide otro).
+// Fecha de vigencia en hora de Argentina (UTC-3). El WSDL define VigenciaDesde como xsd:date → YYYY-MM-DD.
 function vigenciaDesde() {
-  const d = new Intl.DateTimeFormat('en-CA', {
+  return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(new Date());
-  return d.replace(/-/g, '');
 }
 
 // Resuelve marca + texto de modelo → códigos de Paraná (codMarca / cod del modelo).
@@ -74,71 +74,106 @@ function buscarVehiculo(marca, textoModelo) {
 
 function construirSoap(dat, veh) {
   const cp = String(dat.cp || '').replace(/\D/g, '') || '1636';
+  const anio = parseInt(dat.anio, 10) || new Date().getFullYear();
+  // Campos en el ORDEN exacto de la secuencia del WSDL (EntServicioCotizacionAutomotores).
+  const T = [
+    ['SistemaOrigen', esc(SISTEMA_ORIGEN)],
+    ['Rama', esc(RAMA)],
+    ['TipoPolizaCodigo', esc(TIPO_POLIZA)],
+    ['TomadorNombre', esc(dat.nombre || 'Cliente Web')],
+    ['TomadorCUIT', ''],
+    ['TomadorTipoPersona', '1'],
+    ['TomadoCategoriaIVACodigo', esc(CAT_IVA)],
+    ['TomadorIIBBCodigo', ''],
+    ['VigenciaDesde', vigenciaDesde()],
+    ['ProductorCodigo', esc(PRODUCTOR)],
+    ['MonedaCodigo', ''],
+    ['PlanComercialCodigo', esc(PLAN)],
+    ['FormaPagoCodigo', esc(FORMA_PAGO)],
+    ['ModoFacturacionCodigo', esc(MODO_FACT)],
+    ['CondicionPagoCodigo', esc(COND_PAGO)],
+    ['CodigoPostal', esc(cp)],
+    ['SubCodigoPostal', '0'],
+    ['MarcaCodigo', esc(veh.codMarca)],
+    ['ModeloCodigo', esc(veh.codModelo)],
+    ['SubModeloCodigo', '1'],
+    ['TipoUso', esc(TIPO_USO)],
+    ['CeroKM', ''],
+    ['AnioFabricacion', String(anio)],
+    ['SumaAsegurada', '0'],
+    ['ClausulaAjusteCodigo', ''],
+    ['AdicionalGranizoCodigo', ''],
+    ['AdicionalGranizoSumaAsegurada', '0'],
+    ['PoseeEquipoRastreo', ''],
+    ['EquipoRastreoCodigo', ''],
+    ['PoseeEquipoGNC', dat.gnc === 'si' ? 'S' : ''],
+    ['ModificarBonificacion', ''],
+    ['ModificarRecargoAdministrativo', ''],
+    ['BonificacionPorc', '0'],
+    ['RecargoAdministrativoPorc', '0'],
+    ['Accesorio1Codigo', '0'], ['Accesorio1Valor', '0'],
+    ['Accesorio2Codigo', '0'], ['Accesorio2Valor', '0'],
+    ['Accesorio3Codigo', '0'], ['Accesorio3Valor', '0'],
+    ['Accesorio4Codigo', '0'], ['Accesorio4Valor', '0'],
+    ['Accesorio5Codigo', '0'], ['Accesorio5Valor', '0'],
+    ['CoberturaAdicional1Codigo', '0'], ['CoberturaAdicional1Valor', '0'],
+    ['CoberturaAdicional2Codigo', '0'], ['CoberturaAdicional2Valor', '0'],
+    ['CoberturaAdicional3Codigo', '0'], ['CoberturaAdicional3Valor', '0'],
+    ['CoberturaAdicional4Codigo', '0'], ['CoberturaAdicional4Valor', '0'],
+    ['CoberturaAdicional5Codigo', '0'], ['CoberturaAdicional5Valor', '0']
+  ];
+  const campos = T.map(([k, v]) => '<tem:' + k + '>' + v + '</tem:' + k + '>').join('');
   return '<?xml version="1.0" encoding="utf-8"?>'
     + '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">'
     + '<soapenv:Header/><soapenv:Body>'
     + '<tem:WSCotizarAutomotores.Execute>'
-    + '<tem:Entserviciocotizacionautomotores>'
-    + '<tem:SistemaOrigen>' + esc(SISTEMA_ORIGEN) + '</tem:SistemaOrigen>'
-    + '<tem:Rama>' + esc(RAMA) + '</tem:Rama>'
-    + '<tem:TipoPolizaCodigo>' + esc(TIPO_POLIZA) + '</tem:TipoPolizaCodigo>'
-    + '<tem:TomadorNombre>' + esc(dat.nombre || 'Cliente Web') + '</tem:TomadorNombre>'
-    + '<tem:TomadorCUIT></tem:TomadorCUIT>'
-    + '<tem:TomadorTipoPersona>1</tem:TomadorTipoPersona>'
-    + '<tem:TomadoCategoriaIVACodigo>' + esc(CAT_IVA) + '</tem:TomadoCategoriaIVACodigo>'
-    + '<tem:TomadorIIBBCodigo></tem:TomadorIIBBCodigo>'
-    + '<tem:VigenciaDesde>' + vigenciaDesde() + '</tem:VigenciaDesde>'
-    + '<tem:ProductorCodigo>' + esc(PRODUCTOR) + '</tem:ProductorCodigo>'
-    + '<tem:MonedaCodigo></tem:MonedaCodigo>'
-    + '<tem:PlanComercialCodigo>' + esc(PLAN) + '</tem:PlanComercialCodigo>'
-    + '<tem:FormaPagoCodigo>' + esc(FORMA_PAGO) + '</tem:FormaPagoCodigo>'
-    + '<tem:ModoFacturacionCodigo>' + esc(MODO_FACT) + '</tem:ModoFacturacionCodigo>'
-    + '<tem:CondicionPagoCodigo>' + esc(COND_PAGO) + '</tem:CondicionPagoCodigo>'
-    + '<tem:CodigoPostal>' + esc(cp) + '</tem:CodigoPostal>'
-    + '<tem:SubCodigoPostal>00</tem:SubCodigoPostal>'
-    + '<tem:MarcaCodigo>' + esc(veh.codMarca) + '</tem:MarcaCodigo>'
-    + '<tem:ModeloCodigo>' + esc(veh.codModelo) + '</tem:ModeloCodigo>'
-    + '<tem:SubModeloCodigo>1</tem:SubModeloCodigo>'
-    + '<tem:CeroKM></tem:CeroKM>'
-    + '<tem:AnioFabricacion>' + (parseInt(dat.anio, 10) || '') + '</tem:AnioFabricacion>'
-    + '<tem:SumaAsegurada></tem:SumaAsegurada>'
-    + '<tem:ClausulaAjusteCodigo></tem:ClausulaAjusteCodigo>'
-    + '<tem:AdicionalGranizoCodigo></tem:AdicionalGranizoCodigo>'
-    + '<tem:PoseeEquipoRastreo></tem:PoseeEquipoRastreo>'
-    + '<tem:EquipoRastreoCodigo></tem:EquipoRastreoCodigo>'
-    + '<tem:PoseeEquipoGNC>' + (dat.gnc === 'si' ? 'S' : '') + '</tem:PoseeEquipoGNC>'
-    + '</tem:Entserviciocotizacionautomotores>'
+    + '<tem:Entserviciocotizacionautomotores>' + campos + '</tem:Entserviciocotizacionautomotores>'
     + '</tem:WSCotizarAutomotores.Execute>'
     + '</soapenv:Body></soapenv:Envelope>';
 }
 
-// Parseo best-effort del XML de respuesta. Paraná devuelve una lista de coberturas con su premio.
-// Se afina cuando veamos el XML real (debug). Busca bloques repetidos con un código de cobertura y un importe.
+// Lee el valor de un tag (ignora el prefijo de namespace).
+function tag(frag, nombre) {
+  const m = frag.match(new RegExp('<(?:[\\w-]+:)?' + nombre + '\\b[^>]*>([\\s\\S]*?)</(?:[\\w-]+:)?' + nombre + '>', 'i'));
+  return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
+}
+function num(s) { return Number(String(s).replace(/\s/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')) || 0; }
+
+// Parseo según el WSDL: Salserviciocotizacionautomotores → Coberturas → Cobertura[]
+//   cada Cobertura: <Cobertura> (código), <CoberturaDesc>/<CoberturaDsc> (texto), <Premio>, <SumaAsegurada>.
+// Devuelve { opciones, errores }.
 function parsearRespuesta(xml) {
+  const errores = [];
+  // Errores / Excepciones que puede devolver Paraná
+  const errRe = /<(?:[\w-]+:)?Error\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?Error>/gi;
+  let em;
+  while ((em = errRe.exec(xml)) !== null) {
+    const d = tag(em[1], 'Descripcion');
+    if (d) errores.push(d);
+  }
+  const excRe = /<(?:[\w-]+:)?Excepcion\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?Excepcion>/gi;
+  let xm;
+  while ((xm = excRe.exec(xml)) !== null) {
+    const d = tag(xm[1], 'Detalle');
+    if (d) errores.push(d);
+  }
+
   const out = [];
-  const val = (frag, tags) => {
-    for (const t of tags) {
-      const m = frag.match(new RegExp('<[^>]*' + t + '[^>]*>\\s*([^<]+?)\\s*</', 'i'));
-      if (m && m[1].trim()) return m[1].trim();
-    }
-    return '';
-  };
-  // Cada cobertura suele venir como un item/nodo repetido. Probamos varios nombres de contenedor.
-  const contRe = /<[^>]*(Cobertura|Item|Coberturas)[^>]*>([\s\S]*?)<\/[^>]*(?:Cobertura|Item|Coberturas)[^>]*>/gi;
-  let m;
-  while ((m = contRe.exec(xml)) !== null) {
-    const frag = m[2];
-    const cod = val(frag, ['CoberturaCodigo', 'Codigo', 'Cobertura']);
-    const desc = val(frag, ['CoberturaDescripcion', 'Descripcion', 'Detalle']);
-    const premioRaw = val(frag, ['Premio', 'PremioTotal', 'Importe', 'PrecioTotal', 'Total']);
-    const sumaRaw = val(frag, ['SumaAsegurada', 'Suma']);
-    const premio = Number(String(premioRaw).replace(/\./g, '').replace(',', '.')) || 0;
-    const suma = Number(String(sumaRaw).replace(/\./g, '').replace(',', '.')) || 0;
-    if (premio > 0 && (cod || desc)) {
-      out.push({ plan: cod || '', cobertura: desc || cod || 'Cobertura', premio, suma });
+  // El contenedor <Cobertura> anida OTRO <Cobertura> (el código) → mismo nombre. Anclamos por <Item>:
+  // cada cobertura tiene exactamente un <Item>, así que partimos por él y leemos los campos de cada bloque.
+  const bloques = xml.split(/<(?:[\w-]+:)?Item\b[^>]*>/i).slice(1);
+  for (const frag of bloques) {
+    const cod = tag(frag, 'Cobertura');            // <Cobertura>A</Cobertura> (Cobertura\b no matchea CoberturaDesc)
+    const desc = tag(frag, 'CoberturaDesc') || tag(frag, 'CoberturaDsc');
+    const premio = num(tag(frag, 'Premio'));
+    const suma = num(tag(frag, 'SumaAsegurada'));
+    const cuota = num(tag(frag, 'ImporteCuota1'));
+    if (premio > 0 || cuota > 0) {
+      out.push({ plan: cod || '', cobertura: desc || cod || 'Cobertura', premio: premio || cuota, suma });
     }
   }
-  return out.sort((a, b) => a.premio - b.premio);
+  out.sort((a, b) => a.premio - b.premio);
+  return { opciones: out, errores };
 }
 
 async function cotizarSoap(xmlBody) {
@@ -174,8 +209,10 @@ exports.handler = async function (event) {
       dbg.soapEnviado = xml;
       const r = await cotizarSoap(xml);
       dbg.httpStatus = r.status;
-      dbg.respuestaRaw = (r.text || '').slice(0, 5000);
-      dbg.opcionesParseadas = parsearRespuesta(r.text || '');
+      dbg.respuestaRaw = (r.text || '').slice(0, 6000);
+      const p = parsearRespuesta(r.text || '');
+      dbg.opcionesParseadas = p.opciones;
+      dbg.erroresParana = p.errores;
     } catch (e) { dbg.error = e.message; }
     return { statusCode: 200, headers, body: JSON.stringify(dbg) };
   }
@@ -197,9 +234,10 @@ exports.handler = async function (event) {
     if (r.status < 200 || r.status >= 300) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Paraná HTTP ' + r.status, opciones: [] }) };
     }
-    const opciones = parsearRespuesta(r.text || '');
+    const { opciones, errores } = parsearRespuesta(r.text || '');
     if (!opciones.length) {
-      return { statusCode: 200, headers, body: JSON.stringify({ error: 'Sin opciones de Paraná para este vehículo', opciones: [] }) };
+      const msg = errores.length ? ('Paraná: ' + errores[0]) : 'Sin opciones de Paraná para este vehículo';
+      return { statusCode: 200, headers, body: JSON.stringify({ error: msg, opciones: [] }) };
     }
     return { statusCode: 200, headers, body: JSON.stringify({ ok: true, opciones }) };
   } catch (e) {
