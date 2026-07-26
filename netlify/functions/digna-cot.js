@@ -167,6 +167,101 @@ function mapUso(uso) {
   return uso === 'comercial' ? 2 : 1; // 1 Particular / 2 Comercial o Carga
 }
 
+// Clasifica un paquete de Digna por su código de letra (esquema Digna) + sus coberturas incluidas.
+//   A* (A / AS)                     -> RC (los 2 se muestran)
+//   C* con "granizo" en los items   -> Terceros Completo Full (flagship que se muestra)
+//   D*                              -> Todo Riesgo (todas se muestran)
+//   resto (B*, C* sin granizo)      -> intermedios -> ocultos
+function grupoDigna(codigo, items) {
+  const c = (codigo || '').toUpperCase().trim();
+  if (!c) return ''; // sin código → dejamos que el frontend clasifique por texto (fallback seguro)
+  if (c[0] === 'A') return 'rc';
+  if (c[0] === 'D') return 'todoriesgo';
+  if (c[0] === 'C') {
+    const tieneGranizo = (items || []).some(it =>
+      /GRANIZO/i.test(it && (it.descripcion || it.Descripcion || '')) || it && it.id === 450);
+    return tieneGranizo ? 'flagship' : 'otro';
+  }
+  return 'otro';
+}
+
+// Corre todo el circuito de cotización de Digna y devuelve el resultado crudo + lo enviado.
+async function correrCotizacion(dat) {
+  const veh = buscarVehiculoInfoAuto(dat.marca, dat.modelo);
+  if (!veh) return { error: 'No se encontró el vehículo en InfoAuto' };
+
+  const headers = await authHeaders();
+  const { idVigencia, idPlanComercial } = await getVigenciaYPlan(headers);
+  const idCodigoPostal = await getCodigoPostal(dat.cp, headers);
+  const idTarifa = await getTarifa(idVigencia, idCodigoPostal, headers);
+  const { vigenciaDesde, vigenciaHasta } = fechasVigencia();
+
+  const payload = {
+    idSeccion: ID_SECCION_AUTOS,
+    idVigencia,
+    vigenciaDesde,
+    vigenciaHasta,
+    idPlanComercial,
+    cantidadCuotas: 1,
+    idProvincia: ID_PROVINCIA_BA,
+    idCodigoPostal,
+    codigoPostal: parseInt(dat.cp, 10),
+    idTarifa,
+    idPersonaTipo: ID_PERSONA_TIPO,
+    idSexo: dat.genero === 'F' ? 2 : 1, // 1=Hombre, 2=Mujer (co_genero manda M/F/X)
+    entidadPublica: false,
+    fechaNacimiento: dat.nac || '1990-01-01',
+    idCondicionFiscal: ID_CONDICION_FISCAL,
+    solicitante: dat.nombre || 'Cliente Web',
+    idFormaCobro: ID_FORMA_COBRO,
+    anio: parseInt(dat.anio, 10) || 0,
+    codigoReferencia: veh.c,
+    idAutoTipo: veh.t,
+    idAutoUso: mapUso(dat.uso),
+    idClausulaAjuste: ID_CLAUSULA_AJUSTE,
+    idAutoOrigen: ID_AUTO_ORIGEN,
+    idAutoCombustible: dat.gnc === 'si' ? 3 : 1, // 3 GNC / 1 Nafta
+    valorVehiculo: 0,
+    es0km: false,
+    rastreadorSat: false,
+    rastreadorSatPropio: false,
+    accesorios: [],
+    // Configuración comercial igual al portal: descuento 5% + recargo 20% (15%+5%).
+    // (El recargo 25% apilando 42+82 hacía que Digna rechazara la cotización → se volvió a 42+50.)
+    // Códigos del manual de Digna (mismo campo idDescuento sirve para descuentos y recargos):
+    //   Descuentos: 25=10% · 26=15% · 29=20% · 24=5% · 19=Tarjeta5%(oblig)
+    //   Recargos:   50=5% · 82=10% · 42=15%
+    descuentosPoliza: [
+      { idDescuento: 24 }, // Descuento 5%
+      { idDescuento: 42 }, // Recargo 15%  ┐ = recargo 20%
+      { idDescuento: 50 }  // Recargo 5%   ┘
+    ]
+  };
+
+  const resultado = await dignaFetch('/CotizacionAutos/cotizar', { method: 'POST', headers, body: payload });
+  return { veh, payload, resultado };
+}
+
+// Mapea el payload crudo de Digna a nuestro contrato { plan, cobertura, premio, suma, grupo }.
+// Acepta los nombres reales de la API (descripcion/codigo/valor/premioTotal/items) con fallbacks.
+function mapearOpciones(resultado) {
+  const items = (resultado && resultado.payload) || [];
+  return items.map(it => {
+    const codigo = it.codigo || it.Codigo || it.CoberturaPaqueteCodigo || '';
+    const desc = it.descripcion || it.Descripcion || it.CoberturaPaqueteDetalle || it.CoberturaPaquete || '';
+    const premio = Number(it.premioTotal || it.PremioTotal || it.valor || it.ValorCuota || it.Premio || 0) || 0;
+    const suma = Number(it.sumaAsegurada || it.SumaAsegurada || 0) || 0;
+    return {
+      plan: (codigo || desc).toString().trim(),
+      cobertura: (desc || codigo).toString().trim(),
+      premio,
+      suma,
+      grupo: grupoDigna(codigo, it.items || it.Items),
+      idCoberturaPaquete: it.id || it.IdCoberturaPaquete // para /CotizacionAutos/generar más adelante
+    };
+  });
+}
+
 exports.handler = async function (event) {
   const headersCors = {
     'Access-Control-Allow-Origin': '*',
@@ -174,6 +269,25 @@ exports.handler = async function (event) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: headersCors, body: '' };
+
+  // ── DEBUG: /.netlify/functions/digna-cot?debug=1[&marca=&modelo=&anio=&cp=]
+  // Devuelve el payload CRUDO de Digna + cómo lo mapeamos (para verificar nombres de campo y códigos).
+  if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
+    const q = event.queryStringParameters || {};
+    const dat = { marca: q.marca || 'Chevrolet', modelo: q.modelo || 'Cruze', anio: q.anio || '2018', cp: q.cp || '1636', genero: 'M' };
+    const dbg = { _debug: true };
+    try {
+      const r = await correrCotizacion(dat);
+      if (r.error) { dbg.error = r.error; }
+      else {
+        dbg.vehiculo = r.veh;
+        dbg.payloadCrudo = (r.resultado && r.resultado.payload || []).slice(0, 20);
+        dbg.opcionesMapeadas = mapearOpciones(r.resultado);
+      }
+    } catch (e) { dbg.error = e.message; }
+    return { statusCode: 200, headers: headersCors, body: JSON.stringify(dbg) };
+  }
+
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: headersCors, body: JSON.stringify({ error: 'Método no permitido' }) };
   }
@@ -183,77 +297,14 @@ exports.handler = async function (event) {
   catch (e) { return { statusCode: 400, headers: headersCors, body: JSON.stringify({ error: 'Body inválido' }) }; }
 
   try {
-    const veh = buscarVehiculoInfoAuto(dat.marca, dat.modelo);
-    if (!veh) {
-      return { statusCode: 200, headers: headersCors, body: JSON.stringify({ error: 'No se encontró el vehículo en InfoAuto', opciones: [] }) };
+    const r = await correrCotizacion(dat);
+    if (r.error) {
+      return { statusCode: 200, headers: headersCors, body: JSON.stringify({ error: r.error, opciones: [] }) };
     }
-
-    const headers = await authHeaders();
-    const { idVigencia, idPlanComercial } = await getVigenciaYPlan(headers);
-    const idCodigoPostal = await getCodigoPostal(dat.cp, headers);
-    const idTarifa = await getTarifa(idVigencia, idCodigoPostal, headers);
-
-    const { vigenciaDesde, vigenciaHasta } = fechasVigencia();
-
-    const payload = {
-      idSeccion: ID_SECCION_AUTOS,
-      idVigencia: idVigencia,
-      vigenciaDesde,
-      vigenciaHasta,
-      idPlanComercial: idPlanComercial,
-      cantidadCuotas: 1,
-      idProvincia: ID_PROVINCIA_BA,
-      idCodigoPostal: idCodigoPostal,
-      codigoPostal: parseInt(dat.cp, 10),
-      idTarifa: idTarifa,
-      idPersonaTipo: ID_PERSONA_TIPO,
-      idSexo: dat.genero === 'F' ? 2 : 1, // 1=Hombre, 2=Mujer (co_genero manda M/F/X)
-      entidadPublica: false,
-      fechaNacimiento: dat.nac || '1990-01-01',  // co_nac llega como "AAAA-06-15" (YYYY-MM-DD) ✓
-      idCondicionFiscal: ID_CONDICION_FISCAL,
-      solicitante: dat.nombre || 'Cliente Web',
-      idFormaCobro: ID_FORMA_COBRO,
-      anio: parseInt(dat.anio, 10) || 0,
-      codigoReferencia: veh.c,
-      idAutoTipo: veh.t,
-      idAutoUso: mapUso(dat.uso),
-      idClausulaAjuste: ID_CLAUSULA_AJUSTE,
-      idAutoOrigen: ID_AUTO_ORIGEN,
-      idAutoCombustible: dat.gnc === 'si' ? 3 : 1, // 3 GNC / 1 Nafta — TODO: sumar diesel si se agrega al form
-      valorVehiculo: 0,
-      es0km: false,
-      rastreadorSat: false,
-      rastreadorSatPropio: false,
-      accesorios: [],
-      // Configuración comercial igual al portal: descuento 5% + recargo 20% (15%+5%).
-      // (El recargo 25% apilando 42+82 hacía que Digna rechazara la cotización → se volvió a 42+50.)
-      // Códigos del manual de Digna (mismo campo idDescuento sirve para descuentos y recargos):
-      //   Descuentos: 25=10% · 26=15% · 29=20% · 24=5% · 19=Tarjeta5%(oblig)
-      //   Recargos:   50=5% · 82=10% · 42=15%
-      descuentosPoliza: [
-        { idDescuento: 24 }, // Descuento 5%
-        { idDescuento: 42 }, // Recargo 15%  ┐ = recargo 20%
-        { idDescuento: 50 }  // Recargo 5%   ┘
-      ]
-    };
-
-    const resultado = await dignaFetch('/CotizacionAutos/cotizar', {
-      method: 'POST', headers, body: payload
-    });
-
-    const items = resultado.payload || [];
-    const opciones = items.map(it => ({
-      plan: it.CoberturaPaquete || '',
-      cobertura: it.CoberturaPaqueteDetalle || it.CoberturaPaqueteCodigo || '',
-      premio: it.ValorCuota || it.Premio || 0,
-      suma: it.SumaAsegurada || 0,
-      idCoberturaPaquete: it.IdCoberturaPaquete // necesario para /CotizacionAutos/generar más adelante
-    }));
-
+    const opciones = mapearOpciones(r.resultado);
     if (!opciones.length) {
       return { statusCode: 200, headers: headersCors, body: JSON.stringify({ error: 'Sin opciones de Digna para este vehículo', opciones: [] }) };
     }
-
     return { statusCode: 200, headers: headersCors, body: JSON.stringify({ opciones }) };
   } catch (e) {
     return { statusCode: 200, headers: headersCors, body: JSON.stringify({ error: 'No se pudo cotizar con Digna: ' + e.message, opciones: [] }) };
