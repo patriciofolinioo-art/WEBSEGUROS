@@ -40,10 +40,12 @@ const ID_AUTO_ORIGEN = 1;      // Nacional (no viene en el Excel, default fijo)
 
 // La vigencia tiene que arrancar el día de la cotización (no puede ser pasada) y dura 1 año.
 function fechasVigencia() {
-  // ⚠️ Netlify corre en UTC. A la tarde/noche argentina, la fecha UTC ya es el día siguiente
-  //    y Digna rechaza la vigencia ("La Vigencia Desde no es válida"). Por eso calculamos la
-  //    fecha en zona horaria de Argentina (UTC-3), no la UTC del servidor.
-  const vigenciaDesde = new Intl.DateTimeFormat('en-CA', {
+  // ⚠️ El ambiente de TESTING de Digna exige una fecha FIJA de vigencia (la que ellos definen,
+  //    ej. "2026-06-30") — la fecha de hoy la rechaza con "La Vigencia Desde no es válida".
+  //    Se setea con la env var DIGNA_VIGENCIA_DESDE. En PRODUCCIÓN se deja vacía y usa la fecha real.
+  //    (Netlify corre en UTC; la fecha real se calcula en hora de Argentina para no adelantar el día.)
+  const fija = (process.env.DIGNA_VIGENCIA_DESDE || '').trim();
+  const vigenciaDesde = /^\d{4}-\d{2}-\d{2}$/.test(fija) ? fija : new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(new Date()); // "YYYY-MM-DD" en hora de Argentina
   // +1 año usando mediodía UTC (evita corrimientos de fecha y normaliza 29/02).
