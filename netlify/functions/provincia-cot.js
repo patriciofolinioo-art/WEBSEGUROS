@@ -149,48 +149,29 @@ exports.handler = async function(event) {
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
 
-  // ── DEBUG temporal: /.netlify/functions/provincia-cot?debug=1[&marca=&modelo=&anio=&cp=&rel=66&com=22]
-  //    Prueba varios nombres de campo para la comisión (codigo_relacion 66 = comisión 22) y muestra
-  //    el premio del Plan 22 con cada uno, para ver cuál baja el precio. QUITAR tras diagnosticar.
+  // ── DEBUG: /.netlify/functions/provincia-cot?debug=1[&marca=&modelo=&anio=&cp=]
+  //    Diagnóstico de resolución de vehículo: muestra marcaCod, modeloCod y el status de la cotización.
   if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
+    const q = event.queryStringParameters || {};
+    const marca = q.marca || 'Chevrolet', modelo = q.modelo || 'Cruze', anio = q.anio || '2018';
+    const dbg = { _debug: true, entrada: { marca, modelo, anio, cp: q.cp || '1642' } };
     try {
-      const q = event.queryStringParameters || {};
-      const marca = q.marca || 'Ford', modelo = q.modelo || 'Focus', anio = q.anio || '2015';
-      const rel = parseInt(q.rel || '66', 10);   // codigo_relacion (66 = comisión 22)
-      const com = parseInt(q.com || '22', 10);
       const tokenD = await getToken();
+      dbg.tokenOk = !!tokenD;
       const marcaCodD = await buscarCodigoMarca(tokenD, marca, '04100');
+      dbg.marcaCod = marcaCodD;              // 'AAA' = no encontró la marca
       const modeloCodD = await buscarCodigoModelo(tokenD, marcaCodD, modelo, anio, '04100');
-      const base = construirPayload({ marca, modelo, anio, cp: q.cp || '1642', uso: 'particular' }, marcaCodD, modeloCodD);
-      const post = (p) => fetch(COTIZAR_URL + '?apikey=' + API_KEY, {
+      dbg.modeloCod = modeloCodD;            // '000000' = no encontró el modelo
+      const payload = construirPayload({ marca, modelo, anio, cp: q.cp || '1642', uso: 'particular' }, marcaCodD, modeloCodD);
+      const r = await fetch(COTIZAR_URL + '?apikey=' + API_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tokenD, 'apikey': API_KEY },
-        body: JSON.stringify(p)
-      }).then(r => r.text());
-      const plan22De = (txt) => { try { const j = JSON.parse(txt); const pl = (j.planes || []).find(x => x.plan === '22'); if (!pl) return '(sin plan 22)'; const pr = (pl.promocionesPorPlan || [])[0]; return pr ? (pr.codigoPromocion + ' = $' + pr.premio) : '(sin promo)'; } catch (e) { return 'no-json'; } };
-      // Probamos dónde mandar la COMISIÓN 22 (codigo_relacion 66) para subir el precio al del portal.
-      const variantes = [
-        { label: 'baseline (comisión de la cuenta ~15%)', apply: () => {} },
-        { label: 'root.codigo_relacion=66', apply: p => { p.codigo_relacion = rel; } },
-        { label: 'bien.codigo_relacion=66', apply: p => { p.bien.codigo_relacion = rel; } },
-        { label: 'datosGenerales.codigo_relacion=66', apply: p => { p.datosGenerales.codigo_relacion = rel; } },
-        { label: 'root.comision=22', apply: p => { p.comision = com; } },
-        { label: 'bien.40089_comision=22', apply: p => { p.bien['40089_comision'] = com; } }
-      ];
-      const res = await Promise.all(variantes.map(async v => {
-        const p = JSON.parse(JSON.stringify(base));
-        v.apply(p);
-        return { variante: v.label, plan22: plan22De(await post(p)) };
-      }));
-      return { statusCode: 200, headers, body: JSON.stringify({
-        _debug: true,
-        autoProbado: marca + ' ' + modelo + ' ' + anio,
-        objetivo: 'que suba al precio de tu portal (comisión 22). La variante que SUBA el precio es el campo correcto.',
-        resultados: res
-      }) };
-    } catch (e) {
-      return { statusCode: 200, headers, body: JSON.stringify({ _debug: true, error: e.message }) };
-    }
+        body: JSON.stringify(payload)
+      });
+      dbg.cotizarStatus = r.status;
+      dbg.cotizarRaw = (await r.text()).slice(0, 1500);
+    } catch (e) { dbg.error = e.message; }
+    return { statusCode: 200, headers, body: JSON.stringify(dbg) };
   }
 
   if (event.httpMethod !== 'POST')    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
