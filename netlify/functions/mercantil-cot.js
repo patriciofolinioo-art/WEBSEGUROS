@@ -222,7 +222,9 @@ exports.handler = async function (event) {
 
     const token = await getToken();
 
-    let vehiculoId = dat.mercantilId || null;
+    // La cotización de Mercantil espera el código InfoAuto. Si el selector nuevo ya lo resolvió
+    // (dat.infoautoCod), lo usamos directo; si no, lo buscamos por texto en el catálogo de Mercantil.
+    let vehiculoId = dat.mercantilId || dat.infoautoCod || null;
     if (!vehiculoId) {
       vehiculoId = await buscarCodigoVehiculo(token, dat.marca, dat.modelo, dat.anio, dat.gnc === 'si');
       if (vehiculoId == null) {

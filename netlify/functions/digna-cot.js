@@ -189,7 +189,11 @@ function grupoDigna(codigo, items) {
 
 // Corre todo el circuito de cotización de Digna y devuelve el resultado crudo + lo enviado.
 async function correrCotizacion(dat) {
-  const veh = buscarVehiculoInfoAuto(dat.marca, dat.modelo);
+  // Si el frontend ya resolvió el código InfoAuto (selector nuevo), lo usamos DIRECTO (exacto).
+  // Si no, caemos al match por texto (compatibilidad).
+  const veh = dat.infoautoCod
+    ? { c: dat.infoautoCod, t: (dat.infoautoTipo != null ? dat.infoautoTipo : 1) }
+    : buscarVehiculoInfoAuto(dat.marca, dat.modelo);
   if (!veh) return { error: 'No se encontró el vehículo en InfoAuto' };
 
   const headers = await authHeaders();

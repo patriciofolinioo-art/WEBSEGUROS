@@ -236,7 +236,8 @@ exports.handler = async function (event) {
     if (!process.env.GALICIA_INSTITUCION) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'GALICIA_INSTITUCION no configurado.', opciones: [] }) };
     }
-    const idInfoAuto = buscarIdInfoAuto(dat.marca, dat.modelo);
+    // Si el frontend ya resolvió el código InfoAuto (selector nuevo), lo usamos directo.
+    const idInfoAuto = dat.infoautoCod || buscarIdInfoAuto(dat.marca, dat.modelo);
     if (idInfoAuto == null) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se encontró el vehículo en InfoAuto (Galicia)', opciones: [] }) };
     }
