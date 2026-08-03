@@ -281,7 +281,10 @@ exports.handler = async function (event) {
   if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
     const q = event.queryStringParameters || {};
     const dat = { marca: q.marca || 'Chevrolet', modelo: q.modelo || 'Cruze', anio: q.anio || '2018', cp: q.cp || '1636', genero: 'M' };
-    const dbg = { _debug: true };
+    const dbg = { _debug: true, env: {
+      DIGNA_VIGENCIA_DESDE: process.env.DIGNA_VIGENCIA_DESDE || null,
+      fechasQueSeEnvian: fechasVigencia()
+    } };
     try {
       const r = await correrCotizacion(dat);
       if (r.error) { dbg.error = r.error; }
