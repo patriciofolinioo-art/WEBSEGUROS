@@ -60,16 +60,18 @@ function buscarVehiculo(marca, textoModelo) {
   const m = PARANA_VEHIC[(marca || '').trim().toUpperCase()];
   if (!m || !m.modelos) return null;
   const q = (textoModelo || '').toUpperCase();
-  const qTokens = q.split(/\s+/).filter(Boolean);
+  // Ignoramos tokens de ruido de la descripción InfoAuto (PTAS, AT, MT, L/XX, nº de puertas).
+  const RUIDO = /^(\d+|PTAS?|PUERTAS?|AT|MT|CVT|L\/?\d+|\d+P)$/;
+  const qTokens = q.split(/\s+/).filter(t => t && !RUIDO.test(t));
   let mod = m.modelos.find(x => (x.nombre || '').toUpperCase() === q);
   if (!mod) {
-    let best = null, bs = -1;
+    let best = null, bs = 0;
     m.modelos.forEach(x => {
       const nom = (x.nombre || '').toUpperCase();
       const sc = qTokens.reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0);
       if (sc > bs) { bs = sc; best = x; }
     });
-    mod = (best && bs > 0) ? best : null;
+    mod = best; // best solo si bs>0 (al menos un token relevante coincidió)
   }
   if (!mod) return null;
   return { codMarca: m.codMarca, codModelo: mod.cod, nombre: mod.nombre };
