@@ -20,6 +20,9 @@
 
 const VEH = require('./parana_vehiculos.js');
 const PARANA_VEHIC = VEH.PARANA_VEHIC || {};
+// CP → SubCódigo postal (de TablasCotizacion). Paraná rechaza SubCodigoPostal 0.
+let CP_SUB = {};
+try { CP_SUB = require('./parana_cp.json'); } catch (e) { CP_SUB = {}; }
 
 const BASE = (process.env.PARANA_BASE || 'http://ws.paranaseguros.com.ar/PARANA_COMERCIAL_PRUE').replace(/\/+$/, '');
 const COTIZAR_URL = BASE + '/servlet/ar.com.glmsa.seguros.comercial.awscotizarautomotores';
@@ -93,7 +96,7 @@ function construirSoap(dat, veh) {
     ['ModoFacturacionCodigo', esc(MODO_FACT)],
     ['CondicionPagoCodigo', esc(COND_PAGO)],
     ['CodigoPostal', esc(cp)],
-    ['SubCodigoPostal', '0'],
+    ['SubCodigoPostal', esc(CP_SUB[cp] || '1')], // subcódigo válido del CP (0 lo rechaza Paraná)
     ['MarcaCodigo', esc(veh.codMarca)],
     ['ModeloCodigo', esc(veh.codModelo)],
     ['SubModeloCodigo', '1'],
