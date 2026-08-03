@@ -61,8 +61,16 @@ async function getToken() {
   return data.access_token;
 }
 
+// Normaliza nombres de marca para comparar sin importar mayúsculas/acentos/guiones.
+// (InfoAuto manda "CHEVROLET"/"MERCEDES BENZ"; el MARCA_MAP está en Título "Chevrolet"/"Mercedes-Benz".)
+function normMarca(s) {
+  return (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toUpperCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+}
+const MARCA_MAP_NORM = Object.keys(MARCA_MAP).reduce((o, k) => { o[normMarca(k)] = MARCA_MAP[k]; return o; }, {});
+
 async function buscarCodigoMarca(token, nombreMarca, producto) {
-  const codLocal = MARCA_MAP[nombreMarca];
+  const codLocal = MARCA_MAP[nombreMarca] || MARCA_MAP_NORM[normMarca(nombreMarca)];
   if (codLocal) return codLocal;
   const url = `${BASE}/marcas/4/${producto}?apikey=${API_KEY}`;
   const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token, 'apikey': API_KEY } });
@@ -85,10 +93,20 @@ async function buscarCodigoModelo(token, marcaCod, nombreModelo, anio, producto)
   try { lista = JSON.parse(await resp.text()); } catch(e) { return '000000'; }
   const arr = Array.isArray(lista) ? lista : (lista.valores || []);
   const nombreUp = (nombreModelo || '').toUpperCase();
+  // 1) Match exacto por inclusión (nombres limpios tipo SISEG).
   let encontrado = arr.find(m => (m.descripcion || m.descripción || '').toUpperCase().includes(nombreUp));
-  if (!encontrado && nombreUp.includes(' ')) {
-    const primera = nombreUp.split(' ')[0];
-    encontrado = arr.find(m => (m.descripcion || m.descripción || '').toUpperCase().includes(primera));
+  // 2) La descripción de InfoAuto es verbosa ("CRUZE 1.4 4 PTAS LT AT L/25"). Puntuamos por tokens
+  //    relevantes (ignorando ruido: PTAS, AT, MT, L/XX, nº de puertas) y elegimos la MEJOR variante.
+  if (!encontrado) {
+    const RUIDO = /^(\d+|PTAS?|PUERTAS?|AT|MT|CVT|L\/?\d+|\d+P)$/;
+    const qTokens = nombreUp.split(/\s+/).filter(t => t && !RUIDO.test(t));
+    let best = null, bestScore = 0;
+    arr.forEach(m => {
+      const d = (m.descripcion || m.descripción || '').toUpperCase();
+      const sc = qTokens.reduce((s, t) => s + (d.includes(t) ? 1 : 0), 0);
+      if (sc > bestScore) { bestScore = sc; best = m; }
+    });
+    encontrado = best; // best solo si algún token coincidió (bestScore>0)
   }
   return encontrado ? (encontrado.código || encontrado.codigo) : '000000';
 }
