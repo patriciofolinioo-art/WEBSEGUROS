@@ -84,12 +84,13 @@ function buscarVehiculo(marca, textoModelo) {
 function construirSoap(dat, veh) {
   const cp = String(dat.cp || '').replace(/\D/g, '') || '1636';
   const anio = parseInt(dat.anio, 10) || new Date().getFullYear();
-  // Campos en el ORDEN exacto de la secuencia del WSDL (EntServicioCotizacionAutomotores).
+  // Campos EXACTAMENTE como el ejemplo oficial de Paraná (termina en PoseeEquipoGNC).
+  // Los campos extra del WSDL (TipoUso, accesorios, adicionales) el ejemplo NO los manda → se omiten.
   const T = [
     ['SistemaOrigen', esc(SISTEMA_ORIGEN)],
     ['Rama', esc(RAMA)],
     ['TipoPolizaCodigo', esc(TIPO_POLIZA)],
-    ['TomadorNombre', esc(dat.nombre || 'Cliente Web')],
+    ['TomadorNombre', esc(dat.nombre || 'Persona Prueba CF')],
     ['TomadorCUIT', ''],
     ['TomadorTipoPersona', '1'],
     ['TomadoCategoriaIVACodigo', esc(CAT_IVA)],
@@ -106,30 +107,14 @@ function construirSoap(dat, veh) {
     ['MarcaCodigo', esc(veh.codMarca)],
     ['ModeloCodigo', esc(veh.codModelo)],
     ['SubModeloCodigo', '1'],
-    ['TipoUso', esc(TIPO_USO)],
     ['CeroKM', ''],
     ['AnioFabricacion', String(anio)],
-    ['SumaAsegurada', '0'],
+    ['SumaAsegurada', ''],
     ['ClausulaAjusteCodigo', ''],
     ['AdicionalGranizoCodigo', ''],
-    ['AdicionalGranizoSumaAsegurada', '0'],
     ['PoseeEquipoRastreo', ''],
     ['EquipoRastreoCodigo', ''],
-    ['PoseeEquipoGNC', dat.gnc === 'si' ? 'S' : ''],
-    ['ModificarBonificacion', ''],
-    ['ModificarRecargoAdministrativo', ''],
-    ['BonificacionPorc', '0'],
-    ['RecargoAdministrativoPorc', '0'],
-    ['Accesorio1Codigo', '0'], ['Accesorio1Valor', '0'],
-    ['Accesorio2Codigo', '0'], ['Accesorio2Valor', '0'],
-    ['Accesorio3Codigo', '0'], ['Accesorio3Valor', '0'],
-    ['Accesorio4Codigo', '0'], ['Accesorio4Valor', '0'],
-    ['Accesorio5Codigo', '0'], ['Accesorio5Valor', '0'],
-    ['CoberturaAdicional1Codigo', '0'], ['CoberturaAdicional1Valor', '0'],
-    ['CoberturaAdicional2Codigo', '0'], ['CoberturaAdicional2Valor', '0'],
-    ['CoberturaAdicional3Codigo', '0'], ['CoberturaAdicional3Valor', '0'],
-    ['CoberturaAdicional4Codigo', '0'], ['CoberturaAdicional4Valor', '0'],
-    ['CoberturaAdicional5Codigo', '0'], ['CoberturaAdicional5Valor', '0']
+    ['PoseeEquipoGNC', dat.gnc === 'si' ? 'S' : '']
   ];
   const campos = T.map(([k, v]) => '<tem:' + k + '>' + v + '</tem:' + k + '>').join('');
   return '<?xml version="1.0" encoding="utf-8"?>'
