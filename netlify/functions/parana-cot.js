@@ -48,8 +48,12 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-// Fecha de vigencia en hora de Argentina (UTC-3). El WSDL define VigenciaDesde como xsd:date → YYYY-MM-DD.
+// Fecha de vigencia. El ambiente de TESTING de Paraná exige una fecha FIJA (la que ellos definen).
+// Se setea con la env var PARANA_VIGENCIA_DESDE (YYYY-MM-DD). En PRODUCCIÓN se deja vacía y usa la
+// fecha real de Argentina (UTC-3). El WSDL define VigenciaDesde como xsd:date → YYYY-MM-DD.
 function vigenciaDesde() {
+  const fija = (process.env.PARANA_VIGENCIA_DESDE || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fija)) return fija;
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(new Date());
@@ -203,7 +207,8 @@ exports.handler = async function (event) {
   if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
     const q = event.queryStringParameters || {};
     const dbg = { _debug: true, env: {
-      PARANA_SISTEMA_ORIGEN: !!SISTEMA_ORIGEN, PARANA_PRODUCTOR: !!PRODUCTOR, PLAN, BASE
+      PARANA_SISTEMA_ORIGEN: !!SISTEMA_ORIGEN, PARANA_PRODUCTOR: !!PRODUCTOR, PLAN, BASE,
+      PARANA_VIGENCIA_DESDE: process.env.PARANA_VIGENCIA_DESDE || null, vigenciaQueSeEnvia: vigenciaDesde()
     } };
     try {
       const marca = q.marca || 'Chevrolet', modelo = q.modelo || 'Corsa', anio = q.anio || '2015';
