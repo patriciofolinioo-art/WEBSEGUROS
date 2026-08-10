@@ -133,15 +133,20 @@ function tag(frag, nombre) {
 }
 function num(s) { return Number(String(s).replace(/\s/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')) || 0; }
 
-// Clasifica una cobertura de Paraná por su código de letra (mismo esquema que Digna/Galicia):
-//   A* -> RC · C* -> Terceros Completo (flagship) · D* -> Todo Riesgo · B* (total parcial) -> oculto
-function grupoParana(codigo) {
+// Clasifica una cobertura de Paraná. Jerarquía Paraná:
+//   Oro / Platino (según el año) = lo más completo -> Todo Riesgo
+//   C8 > C4 > C0 = Terceros Completo (flagship; el frontend muestra el más caro/completo)
+//   A0 = RC · B0/B1 (total parcial) = ocultos
+// Se detecta por NOMBRE (Oro/Platino/Todo Riesgo) y, si no, por la letra del código.
+function grupoParana(codigo, desc) {
   const c = (codigo || '').toUpperCase().trim();
+  const d = (desc || '').toUpperCase();
+  if (/\bORO\b|\bPLATINO\b|TODO\s*RIESGO/.test(d)) return 'todoriesgo';
   if (!c) return '';
   if (c[0] === 'A') return 'rc';
   if (c[0] === 'D') return 'todoriesgo';
-  if (c[0] === 'C') return 'flagship';
-  return 'otro';
+  if (c[0] === 'C') return 'flagship'; // Terceros Completo (C8/C4/C0); gana el más caro = el más completo
+  return 'otro'; // B0/B1 (total parcial)
 }
 
 // Parseo según el WSDL: Salserviciocotizacionautomotores → Coberturas → Cobertura[]
@@ -176,7 +181,7 @@ function parsearRespuesta(xml) {
     const suma = num(tag(frag, 'SumaAsegurada')) || valorVehic; // suma por cobertura o la general del vehículo
     const cuota = num(tag(frag, 'ImporteCuota1'));
     if (premio > 0 || cuota > 0) {
-      out.push({ plan: cod || '', cobertura: desc || cod || 'Cobertura', premio: premio || cuota, suma, grupo: grupoParana(cod) });
+      out.push({ plan: cod || '', cobertura: desc || cod || 'Cobertura', premio: premio || cuota, suma, grupo: grupoParana(cod, desc) });
     }
   }
   out.sort((a, b) => a.premio - b.premio);
