@@ -169,21 +169,17 @@ function mapUso(uso) {
   return uso === 'comercial' ? 2 : 1; // 1 Particular / 2 Comercial o Carga
 }
 
-// Clasifica un paquete de Digna por su código de letra (esquema Digna) + sus coberturas incluidas.
-//   A* (A / AS)                     -> RC (los 2 se muestran)
-//   C* con "granizo" en los items   -> Terceros Completo Full (flagship que se muestra)
-//   D*                              -> Todo Riesgo (todas se muestran)
-//   resto (B*, C* sin granizo)      -> intermedios -> ocultos
+// Clasifica un paquete de Digna por su código de letra (esquema Digna):
+//   A* (A / AS)  -> RC (los 2 se muestran)
+//   C*           -> Terceros Completo (el frontend muestra el más completo/caro = el que tiene granizo)
+//   D*           -> Todo Riesgo (todas se muestran)
+//   resto (B*)   -> intermedios (total parcial) -> ocultos
 function grupoDigna(codigo, items) {
   const c = (codigo || '').toUpperCase().trim();
   if (!c) return ''; // sin código → dejamos que el frontend clasifique por texto (fallback seguro)
   if (c[0] === 'A') return 'rc';
   if (c[0] === 'D') return 'todoriesgo';
-  if (c[0] === 'C') {
-    const tieneGranizo = (items || []).some(it =>
-      /GRANIZO/i.test(it && (it.descripcion || it.Descripcion || '')) || it && it.id === 450);
-    return tieneGranizo ? 'flagship' : 'otro';
-  }
+  if (c[0] === 'C') return 'flagship'; // cualquier Terceros Completo; el frontend elige el mejor
   return 'otro';
 }
 
