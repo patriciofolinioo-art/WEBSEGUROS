@@ -134,14 +134,15 @@ function tag(frag, nombre) {
 function num(s) { return Number(String(s).replace(/\s/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')) || 0; }
 
 // Clasifica una cobertura de Paraná. Jerarquía Paraná:
-//   Oro / Platino (según el año) = lo más completo -> Todo Riesgo
-//   C8 > C4 > C0 = Terceros Completo (flagship; el frontend muestra el más caro/completo)
-//   A0 = RC · B0/B1 (total parcial) = ocultos
+//   Oro / Platino = Terceros Completo con MÁS detalle · C8 > C4 > C0 = Terceros Completo
+//     → todos van a "Terceros Completo" (flagship); el frontend muestra el más caro/completo
+//   D* = Todo Riesgo · A0 = RC · B0/B1 (total parcial) = ocultos
 // Se detecta por NOMBRE (Oro/Platino/Todo Riesgo) y, si no, por la letra del código.
 function grupoParana(codigo, desc) {
   const c = (codigo || '').toUpperCase().trim();
   const d = (desc || '').toUpperCase();
-  if (/\bORO\b|\bPLATINO\b|TODO\s*RIESGO/.test(d)) return 'todoriesgo';
+  if (/TODO\s*RIESGO/.test(d)) return 'todoriesgo';
+  if (/\bORO\b|\bPLATINO\b/.test(d)) return 'flagship'; // Terceros Completo premium
   if (!c) return '';
   if (c[0] === 'A') return 'rc';
   if (c[0] === 'D') return 'todoriesgo';
