@@ -41,6 +41,7 @@ const FORMA_PAGO     = process.env.PARANA_FORMA_PAGO || '0';
 const MODO_FACT      = process.env.PARANA_MODO_FACT || 'NPM';
 const COND_PAGO      = process.env.PARANA_COND_PAGO || '201';
 const TIPO_USO       = process.env.PARANA_TIPO_USO || '1';   // 1 = Particular (ajustar si Paraná usa otro código)
+const BONIFICACION   = process.env.PARANA_BONIFICACION || '20'; // % de bonificación (descuento) a aplicar
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -114,7 +115,12 @@ function construirSoap(dat, veh) {
     ['AdicionalGranizoCodigo', ''],
     ['PoseeEquipoRastreo', ''],
     ['EquipoRastreoCodigo', ''],
-    ['PoseeEquipoGNC', dat.gnc === 'si' ? 'S' : '']
+    ['PoseeEquipoGNC', dat.gnc === 'si' ? 'S' : ''],
+    // Bonificación (descuento comercial). ModificarBonificacion='S' habilita aplicar BonificacionPorc.
+    ['ModificarBonificacion', Number(BONIFICACION) > 0 ? 'S' : ''],
+    ['ModificarRecargoAdministrativo', ''],
+    ['BonificacionPorc', String(Number(BONIFICACION) || 0)],
+    ['RecargoAdministrativoPorc', '0']
   ];
   const campos = T.map(([k, v]) => '<tem:' + k + '>' + v + '</tem:' + k + '>').join('');
   return '<?xml version="1.0" encoding="utf-8"?>'
