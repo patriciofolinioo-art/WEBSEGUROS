@@ -41,7 +41,10 @@ const FORMA_PAGO     = process.env.PARANA_FORMA_PAGO || '0';
 const MODO_FACT      = process.env.PARANA_MODO_FACT || 'NPM';
 const COND_PAGO      = process.env.PARANA_COND_PAGO || '201';
 const TIPO_USO       = process.env.PARANA_TIPO_USO || '1';   // 1 = Particular (ajustar si Paraná usa otro código)
-const BONIFICACION   = process.env.PARANA_BONIFICACION || '20'; // % de bonificación (descuento) a aplicar
+// % de bonificación (descuento). Default 0 (desactivado): el ORIGEN de TESTING no admite modificarla
+// ("El origen de cotización no admite modificar la Bonificación"). En PRODUCCIÓN, si el origen lo
+// permite, setear PARANA_BONIFICACION=20 para aplicar el 20%.
+const BONIFICACION   = process.env.PARANA_BONIFICACION || '0';
 
 function esc(s) {
   return String(s == null ? '' : s)
