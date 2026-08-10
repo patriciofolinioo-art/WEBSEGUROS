@@ -250,7 +250,9 @@ function mapearOpciones(resultado) {
   const items = (resultado && resultado.payload) || [];
   return items.map(it => {
     const codigo = it.codigo || it.Codigo || it.CoberturaPaqueteCodigo || '';
-    const desc = it.descripcion || it.Descripcion || it.CoberturaPaqueteDetalle || it.CoberturaPaquete || '';
+    // Preferimos el NOMBRE limpio del paquete (ej. "DIGNA 0RC C/ASISTENCIA") sobre el "Detalle"
+    // (que en algunos planes trae un texto multilínea feo tipo "Tipo: B1 Cobertura: Básica...").
+    const desc = it.descripcion || it.Descripcion || it.CoberturaPaquete || it.CoberturaPaqueteDetalle || '';
     const premio = Number(it.premioTotal || it.PremioTotal || it.valor || it.ValorCuota || it.Premio || 0) || 0;
     const suma = Number(it.sumaAsegurada || it.SumaAsegurada || 0) || 0;
     return {
