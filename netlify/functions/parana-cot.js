@@ -133,10 +133,23 @@ function tag(frag, nombre) {
 }
 function num(s) { return Number(String(s).replace(/\s/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')) || 0; }
 
+// Clasifica una cobertura de Paraná por su código de letra (mismo esquema que Digna/Galicia):
+//   A* -> RC · C* -> Terceros Completo (flagship) · D* -> Todo Riesgo · B* (total parcial) -> oculto
+function grupoParana(codigo) {
+  const c = (codigo || '').toUpperCase().trim();
+  if (!c) return '';
+  if (c[0] === 'A') return 'rc';
+  if (c[0] === 'D') return 'todoriesgo';
+  if (c[0] === 'C') return 'flagship';
+  return 'otro';
+}
+
 // Parseo según el WSDL: Salserviciocotizacionautomotores → Coberturas → Cobertura[]
 //   cada Cobertura: <Cobertura> (código), <CoberturaDesc>/<CoberturaDsc> (texto), <Premio>, <SumaAsegurada>.
+//   La suma asegurada del vehículo viene a nivel general en <ValorAseguradoVehic>.
 // Devuelve { opciones, errores }.
 function parsearRespuesta(xml) {
+  const valorVehic = num(tag(xml, 'ValorAseguradoVehic')); // suma asegurada del vehículo (general)
   const errores = [];
   // Errores / Excepciones que puede devolver Paraná
   const errRe = /<(?:[\w-]+:)?Error\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?Error>/gi;
@@ -160,10 +173,10 @@ function parsearRespuesta(xml) {
     const cod = tag(frag, 'Cobertura');            // <Cobertura>A</Cobertura> (Cobertura\b no matchea CoberturaDesc)
     const desc = tag(frag, 'CoberturaDesc') || tag(frag, 'CoberturaDsc');
     const premio = num(tag(frag, 'Premio'));
-    const suma = num(tag(frag, 'SumaAsegurada'));
+    const suma = num(tag(frag, 'SumaAsegurada')) || valorVehic; // suma por cobertura o la general del vehículo
     const cuota = num(tag(frag, 'ImporteCuota1'));
     if (premio > 0 || cuota > 0) {
-      out.push({ plan: cod || '', cobertura: desc || cod || 'Cobertura', premio: premio || cuota, suma });
+      out.push({ plan: cod || '', cobertura: desc || cod || 'Cobertura', premio: premio || cuota, suma, grupo: grupoParana(cod) });
     }
   }
   out.sort((a, b) => a.premio - b.premio);
