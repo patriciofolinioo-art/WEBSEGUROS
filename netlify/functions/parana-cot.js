@@ -24,7 +24,7 @@ const PARANA_VEHIC = VEH.PARANA_VEHIC || {};
 let CP_SUB = {};
 try { CP_SUB = require('./parana_cp.json'); } catch (e) { CP_SUB = {}; }
 
-const BASE = (process.env.PARANA_BASE || 'http://ws.paranaseguros.com.ar/PARANA_COMERCIAL_PRUE').replace(/\/+$/, '');
+const BASE = (process.env.PARANA_BASE || 'http://ws.paranaseguros.com.ar/PARANA_COMERCIAL_PROD').replace(/\/+$/, '');
 const COTIZAR_URL = BASE + '/servlet/ar.com.glmsa.seguros.comercial.awscotizarautomotores';
 const SOAP_ACTION = 'http://tempuri.org/action/AWSCOTIZARAUTOMOTORES.Execute'; // del WSDL
 
