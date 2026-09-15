@@ -580,14 +580,14 @@ footer>*{max-width:var(--maxw)}
 <div id="aiChat">
   <div id="aiChatBubble"><b>Seguí IA</b> · Cotizá guiado, paso a paso</div>
   <button id="aiChatBtn" onclick="aiToggle()" title="Seguí tu cotización con IA">
-    <div class="ai-btn-face"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="9" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><path d="M8.5 14a3.7 3.7 0 0 0 7 0"/></svg></div>
+    <div class="ai-btn-face"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M5 13a7 7 0 0 1 14 0"/><rect x="3.4" y="12.6" width="2.8" height="5" rx="1.4"/><rect x="17.8" y="12.6" width="2.8" height="5" rx="1.4"/><path d="M19.2 17.6v.8a2.2 2.2 0 0 1-2.2 2.2H13.5"/><circle cx="9.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><path d="M9.6 15.4a3.2 3.2 0 0 0 4.8 0"/></svg></div>
     <div class="ai-btn-label">Seguí IA</div>
     <div id="aiChatPulse"></div>
   </button>
   <div id="aiChatWin">
     <div id="aiChatHeader">
       <div class="ai-avatar-wrap">
-        <div class="ai-avatar"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="9" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><path d="M8.5 14a3.7 3.7 0 0 0 7 0"/></svg></div>
+        <div class="ai-avatar"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M5 13a7 7 0 0 1 14 0"/><rect x="3.4" y="12.6" width="2.8" height="5" rx="1.4"/><rect x="17.8" y="12.6" width="2.8" height="5" rx="1.4"/><path d="M19.2 17.6v.8a2.2 2.2 0 0 1-2.2 2.2H13.5"/><circle cx="9.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><path d="M9.6 15.4a3.2 3.2 0 0 0 4.8 0"/></svg></div>
         <div class="ai-avatar-badge"></div>
       </div>
       <div>
@@ -867,7 +867,7 @@ function aiType(msgs, cb){
   function next(){
     if(i>=msgs.length){cb&&cb();return;}
     const t=document.createElement('div'); t.className='ai-msg-bot';
-    t.innerHTML='<div class="ai-mini-av"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="9" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><path d="M8.5 14a3.7 3.7 0 0 0 7 0"/></svg></div><div class="ai-bbl ai-typing-bbl"><span></span><span></span><span></span></div>';
+    t.innerHTML='<div class="ai-mini-av"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M5 13a7 7 0 0 1 14 0"/><rect x="3.4" y="12.6" width="2.8" height="5" rx="1.4"/><rect x="17.8" y="12.6" width="2.8" height="5" rx="1.4"/><path d="M19.2 17.6v.8a2.2 2.2 0 0 1-2.2 2.2H13.5"/><circle cx="9.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><path d="M9.6 15.4a3.2 3.2 0 0 0 4.8 0"/></svg></div><div class="ai-bbl ai-typing-bbl"><span></span><span></span><span></span></div>';
     c.appendChild(t); aiScroll();
     const d=480+msgs[i].replace(/<[^>]+>/g,'').length*8;
     setTimeout(()=>{c.removeChild(t);aiBot(msgs[i]);i++;setTimeout(next,220);},d);
@@ -878,7 +878,7 @@ function aiType(msgs, cb){
 function aiBot(html, cls){
   const c=document.getElementById('aiChatMsgs');
   const d=document.createElement('div'); d.className='ai-msg-bot';
-  d.innerHTML='<div class="ai-mini-av"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="9" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><path d="M8.5 14a3.7 3.7 0 0 0 7 0"/></svg></div><div class="ai-bbl'+(cls?' '+cls:'')+'">'+html+'</div>';
+  d.innerHTML='<div class="ai-mini-av"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M5 13a7 7 0 0 1 14 0"/><rect x="3.4" y="12.6" width="2.8" height="5" rx="1.4"/><rect x="17.8" y="12.6" width="2.8" height="5" rx="1.4"/><path d="M19.2 17.6v.8a2.2 2.2 0 0 1-2.2 2.2H13.5"/><circle cx="9.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><path d="M9.6 15.4a3.2 3.2 0 0 0 4.8 0"/></svg></div><div class="ai-bbl'+(cls?' '+cls:'')+'">'+html+'</div>';
   c.appendChild(d); aiScroll();
 }
 
@@ -893,7 +893,7 @@ function aiUser(text){
 function aiErr(html){
   const c=document.getElementById('aiChatMsgs');
   const d=document.createElement('div'); d.className='ai-msg-bot';
-  d.innerHTML='<div class="ai-mini-av"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="9" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><path d="M8.5 14a3.7 3.7 0 0 0 7 0"/></svg></div><div class="ai-bbl err">'+html+'</div>';
+  d.innerHTML='<div class="ai-mini-av"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M5 13a7 7 0 0 1 14 0"/><rect x="3.4" y="12.6" width="2.8" height="5" rx="1.4"/><rect x="17.8" y="12.6" width="2.8" height="5" rx="1.4"/><path d="M19.2 17.6v.8a2.2 2.2 0 0 1-2.2 2.2H13.5"/><circle cx="9.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><path d="M9.6 15.4a3.2 3.2 0 0 0 4.8 0"/></svg></div><div class="ai-bbl err">'+html+'</div>';
   c.appendChild(d); aiScroll();
 }
 
