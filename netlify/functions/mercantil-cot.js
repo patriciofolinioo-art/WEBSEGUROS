@@ -21,6 +21,8 @@ const HOST       = process.env.MERCANTIL_HOST || 'https://apidev.mercantilandina
 const VEH_BASE   = HOST + '/vehiculos/v1';
 const COTIZAR_URL = HOST + '/cotizaciones/v2/auto';
 const LOGIN_URL  = process.env.MERCANTIL_LOGIN_URL || (HOST + '/credenciales/v2');
+// client_id del login OAuth. En testing era 'api-clientes-login'; en producción puede diferir.
+const CLIENT_ID  = process.env.MERCANTIL_CLIENT_ID || 'api-clientes-login';
 
 // ── Parámetros comerciales ──
 // La cuenta (test 15056) exige bonificación = 0. La comisión válida puede ser 10, 20, 25 o 30
@@ -47,7 +49,7 @@ async function getToken() {
   // Login OAuth2 (password grant, estilo Keycloak) → POST /credenciales/v2 con body urlencoded.
   // (Confirmado en la colección Postman oficial de Mercantil: request "Login").
   const body = new URLSearchParams({
-    client_id: 'api-clientes-login',
+    client_id: CLIENT_ID,
     grant_type: 'password',
     username: user,
     password: pass
@@ -188,7 +190,12 @@ exports.handler = async function (event) {
   // ── DEBUG temporal: /.netlify/functions/mercantil-cot?debug=1[&marca=Chery&modelo=Tiggo&anio=2017]
   //    Muestra si encuentra el vehículo en el catálogo y si cotiza. QUITAR tras diagnosticar.
   if (event.httpMethod === 'GET' && (event.queryStringParameters || {}).debug) {
-    const dbg = { _debug: true, env: { MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null, HOST } };
+    const _u = (process.env.MERCANTIL_USER || ''), _p = (process.env.MERCANTIL_PASS || ''), _s = (process.env.MERCANTIL_SUBKEY || '');
+    const dbg = { _debug: true, env: {
+      MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null, HOST, LOGIN_URL, CLIENT_ID,
+      userLen: _u.length, passLen: _p.length, subkeyLen: _s.length,
+      userConEspacios: _u !== _u.trim(), passConEspacios: _p !== _p.trim()
+    } };
     try {
       const q = event.queryStringParameters || {};
       const anio = q.anio || '2015';
