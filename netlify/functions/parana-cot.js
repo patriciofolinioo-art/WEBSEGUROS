@@ -24,7 +24,9 @@ const PARANA_VEHIC = VEH.PARANA_VEHIC || {};
 let CP_SUB = {};
 try { CP_SUB = require('./parana_cp.json'); } catch (e) { CP_SUB = {}; }
 
-const BASE = (process.env.PARANA_BASE || 'http://paranaseguros.com.ar/PARANA_COMERCIAL_PROD').replace(/\/+$/, '');
+// BASE por env. PROD (default): https://productores.paranaseguros.com.ar/PARANA_COMERCIAL_PROD
+//   TEST: http://ws.paranaseguros.com.ar/PARANA_COMERCIAL_PRUE (setear PARANA_BASE para volver a testing)
+const BASE = (process.env.PARANA_BASE || 'https://productores.paranaseguros.com.ar/PARANA_COMERCIAL_PROD').replace(/\/+$/, '');
 const COTIZAR_URL = BASE + '/servlet/ar.com.glmsa.seguros.comercial.awscotizarautomotores';
 const SOAP_ACTION = 'http://tempuri.org/action/AWSCOTIZARAUTOMOTORES.Execute'; // del WSDL
 
@@ -40,7 +42,6 @@ const CAT_IVA        = process.env.PARANA_CAT_IVA || '5';   // 5 = Consumidor Fi
 const FORMA_PAGO     = process.env.PARANA_FORMA_PAGO || '0';
 const MODO_FACT      = process.env.PARANA_MODO_FACT || 'NPM';
 const COND_PAGO      = process.env.PARANA_COND_PAGO || '201';
-const TIPO_USO       = process.env.PARANA_TIPO_USO || '1';   // 1 = Particular (ajustar si Paraná usa otro código)
 // % de bonificación (descuento). Default 0 (desactivado): el ORIGEN de TESTING no admite modificarla
 // ("El origen de cotización no admite modificar la Bonificación"). En PRODUCCIÓN, si el origen lo
 // permite, setear PARANA_BONIFICACION=20 para aplicar el 20%.
