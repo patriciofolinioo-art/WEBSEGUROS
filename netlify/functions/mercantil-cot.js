@@ -16,7 +16,8 @@
 //      MERCANTIL_PRODUCTOR   = id de productor (ej. 87165)
 //      MERCANTIL_LOGIN_URL   = (opcional) URL del login si difiere del default
 
-const HOST       = 'https://apidev.mercantilandina.com.ar';   // DEV — cambiar a prod cuando esté ok
+// HOST configurable por env. TEST=https://apidev.mercantilandina.com.ar · PROD=https://api.mercantilandina.com.ar
+const HOST       = process.env.MERCANTIL_HOST || 'https://apidev.mercantilandina.com.ar';
 const VEH_BASE   = HOST + '/vehiculos/v1';
 const COTIZAR_URL = HOST + '/cotizaciones/v2/auto';
 const LOGIN_URL  = process.env.MERCANTIL_LOGIN_URL || (HOST + '/credenciales/v2');
