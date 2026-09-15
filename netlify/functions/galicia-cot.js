@@ -25,7 +25,9 @@ const INFOAUTO = require('./infoauto.json');
 // PRE (testing) por defecto; producción: https://productores.galiciaseguros.com.ar
 const BASE = process.env.GALICIA_BASE || 'https://productores-pre.galiciaseguros.com.ar';
 const TOKEN_URL   = BASE + '/Security/token';
-const COTIZAR_URL = BASE + '/Motor/api/TechnicalPricing/Cotizar';
+// Ruta de cotización configurable por env (en PRODUCCIÓN puede diferir de PRE).
+// PRE: /Motor/api/TechnicalPricing/Cotizar · si producción da 404 "API doesn't exist", ajustar con GALICIA_COTIZAR_PATH.
+const COTIZAR_URL = BASE + (process.env.GALICIA_COTIZAR_PATH || '/Motor/api/TechnicalPricing/Cotizar');
 
 // $type de .NET (Technical Pricing, Cotización Input). Si Galicia los rechaza, ajustar acá.
 const T_PERSONA  = 'Motor.Areas.SeguroNuevo.Version3.TechnicalPricing.Models.Cotizacion.Input.PersonaFisica, Motor, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null';

@@ -86,9 +86,10 @@ function buscarVehiculo(marca, textoModelo) {
   return { codMarca: m.codMarca, codModelo: mod.cod, nombre: mod.nombre };
 }
 
-function construirSoap(dat, veh) {
+function construirSoap(dat, veh, bonifOverride) {
   const cp = String(dat.cp || '').replace(/\D/g, '') || '1636';
   const anio = parseInt(dat.anio, 10) || new Date().getFullYear();
+  const bonif = bonifOverride != null ? bonifOverride : BONIFICACION; // permite forzar 0 en el reintento
   // Campos EXACTAMENTE como el ejemplo oficial de Paraná (termina en PoseeEquipoGNC).
   // Los campos extra del WSDL (TipoUso, accesorios, adicionales) el ejemplo NO los manda → se omiten.
   const T = [
@@ -121,9 +122,9 @@ function construirSoap(dat, veh) {
     ['EquipoRastreoCodigo', ''],
     ['PoseeEquipoGNC', dat.gnc === 'si' ? 'S' : ''],
     // Bonificación (descuento comercial). ModificarBonificacion='S' habilita aplicar BonificacionPorc.
-    ['ModificarBonificacion', Number(BONIFICACION) > 0 ? 'S' : ''],
+    ['ModificarBonificacion', Number(bonif) > 0 ? 'S' : ''],
     ['ModificarRecargoAdministrativo', ''],
-    ['BonificacionPorc', String(Number(BONIFICACION) || 0)],
+    ['BonificacionPorc', String(Number(bonif) || 0)],
     ['RecargoAdministrativoPorc', '0']
   ];
   const campos = T.map(([k, v]) => '<tem:' + k + '>' + v + '</tem:' + k + '>').join('');
@@ -209,6 +210,23 @@ async function cotizarSoap(xmlBody) {
   return { status: resp.status, text };
 }
 
+// Cotiza y, si el origen no admite modificar la bonificación (error típico), reintenta sin bonificación.
+// Devuelve { xml, r, opciones, errores, reintento }.
+async function cotizarConReintento(dat, veh) {
+  let xml = construirSoap(dat, veh);
+  let r = await cotizarSoap(xml);
+  let p = parsearRespuesta(r.text || '');
+  const bonifRechazada = p.errores.some(e => /bonific/i.test(e));
+  let reintento = false;
+  if (!p.opciones.length && bonifRechazada && Number(BONIFICACION) > 0) {
+    reintento = true;
+    xml = construirSoap(dat, veh, 0); // sin bonificación
+    r = await cotizarSoap(xml);
+    p = parsearRespuesta(r.text || '');
+  }
+  return { xml, r, opciones: p.opciones, errores: p.errores, reintento };
+}
+
 exports.handler = async function (event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -229,14 +247,13 @@ exports.handler = async function (event) {
       const veh = buscarVehiculo(marca, modelo);
       dbg.vehiculo = veh;
       if (!veh) { dbg.nota = 'vehículo no encontrado en parana_vehiculos.js'; return { statusCode: 200, headers, body: JSON.stringify(dbg) }; }
-      const xml = construirSoap({ marca, modelo, anio, cp: q.cp || '1636' }, veh);
-      dbg.soapEnviado = xml;
-      const r = await cotizarSoap(xml);
-      dbg.httpStatus = r.status;
-      dbg.respuestaRaw = (r.text || '').slice(0, 6000);
-      const p = parsearRespuesta(r.text || '');
-      dbg.opcionesParseadas = p.opciones;
-      dbg.erroresParana = p.errores;
+      const cr = await cotizarConReintento({ marca, modelo, anio, cp: q.cp || '1636' }, veh);
+      dbg.soapEnviado = cr.xml;
+      dbg.reintentoSinBonificacion = cr.reintento;
+      dbg.httpStatus = cr.r.status;
+      dbg.respuestaRaw = (cr.r.text || '').slice(0, 6000);
+      dbg.opcionesParseadas = cr.opciones;
+      dbg.erroresParana = cr.errores;
     } catch (e) { dbg.error = e.message; }
     return { statusCode: 200, headers, body: JSON.stringify(dbg) };
   }
@@ -254,11 +271,11 @@ exports.handler = async function (event) {
     const veh = buscarVehiculo(dat.marca, dat.modelo);
     if (!veh) return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se encontró el vehículo en la base de Paraná', opciones: [] }) };
 
-    const r = await cotizarSoap(construirSoap(dat, veh));
-    if (r.status < 200 || r.status >= 300) {
-      return { statusCode: 200, headers, body: JSON.stringify({ error: 'Paraná HTTP ' + r.status, opciones: [] }) };
+    const cr = await cotizarConReintento(dat, veh);
+    if (cr.r.status < 200 || cr.r.status >= 300) {
+      return { statusCode: 200, headers, body: JSON.stringify({ error: 'Paraná HTTP ' + cr.r.status, opciones: [] }) };
     }
-    const { opciones, errores } = parsearRespuesta(r.text || '');
+    const { opciones, errores } = cr;
     if (!opciones.length) {
       const msg = errores.length ? ('Paraná: ' + errores[0]) : 'Sin opciones de Paraná para este vehículo';
       return { statusCode: 200, headers, body: JSON.stringify({ error: msg, opciones: [] }) };
