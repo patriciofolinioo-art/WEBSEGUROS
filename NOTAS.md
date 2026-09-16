@@ -1,5 +1,43 @@
 # WebSeguros — Estado y pendientes
 
+## 📊 Estado de las 5 cotizaciones (al 16/09/2026)
+
+Las **5 compañías están activas** en `CO_CIAS` (index.html y cotizar.html). Lo que cambia
+entre una y otra es **a qué entorno le pegan**: producción (precios reales) o testing
+(precios de prueba, que no sirven para venderle a nadie).
+
+| # | Compañía | Entorno por defecto (código) | Endpoint | Cómo se pasa a producción |
+|---|----------|------------------------------|----------|---------------------------|
+| 1 | **Provincia Seguros** | ✅ **PRODUCCIÓN** (fijo) | `apimprod.provinciaseguros.com.ar` | Ya está. La URL está fija en `provincia-cot.js`, no hay variable que la cambie. |
+| 2 | **Paraná Seguros** | ✅ **PRODUCCIÓN** (default) | `productores.paranaseguros.com.ar/PARANA_COMERCIAL_PROD` | Ya está. `PARANA_BASE` solo sirve para **volver** a testing. |
+| 3 | **Mercantil Andina** | ⚠️ **TESTING** | `apidev.mercantilandina.com.ar` | `MERCANTIL_HOST = https://api.mercantilandina.com.ar` |
+| 4 | **Digna Seguros** | ⚠️ **TESTING** | `equiswebtest.digna.seg.ar` | `DIGNA_BASE_URL` con la URL productiva |
+| 5 | **Galicia Seguros** | ⚠️ **PRE / TESTING** | `productores-pre.galiciaseguros.com.ar` | `GALICIA_BASE = https://productores.galiciaseguros.com.ar` |
+
+⚠️ **Lo de arriba es el default del CÓDIGO, no lo que esté cargado en Netlify.** Si en
+Netlify ya está `MERCANTIL_HOST` / `DIGNA_BASE_URL` / `GALICIA_BASE` apuntando a producción,
+esas tres también salen con precios reales. Para confirmar cuál está usando cada una **hoy**:
+
+```
+https://sanisidroseguros.com.ar/.netlify/functions/provincia-cot?debug=1
+https://sanisidroseguros.com.ar/.netlify/functions/parana-cot?debug=1
+https://sanisidroseguros.com.ar/.netlify/functions/mercantil-cot?debug=1
+https://sanisidroseguros.com.ar/.netlify/functions/digna-cot?debug=1
+https://sanisidroseguros.com.ar/.netlify/functions/galicia-cot?debug=1
+```
+Mirar el campo `HOST` (Mercantil) o `BASE` (Paraná, Galicia, Digna) en la respuesta.
+
+### ⚠️ Dos cosas a mirar
+
+1. **El sitio es público y tres compañías salen a testing por defecto.** Si esas variables
+   no están cargadas en Netlify, un cliente real está viendo **precios de prueba** al lado
+   de precios reales, sin ninguna marca que los distinga. O se cargan las variables, o esas
+   tres se sacan de `CO_CIAS` hasta tener producción.
+2. **Los `?debug=1` están abiertos al público.** Cualquiera que sepa la URL puede llamarlos:
+   devuelven el id de productor, el host, el usuario enmascarado y el largo de la contraseña,
+   y cada llamada hace un login + una cotización real contra la compañía. Conviene pedirles
+   una clave (`?debug=1&clave=...` contra una env var) o sacarlos.
+
 ## ✅ Hecho (ya commiteado y pusheado)
 
 1. **WhatsApp** → cambiado a **11 5452-2619** (`5491154522619`) en todo el sitio
@@ -37,8 +75,9 @@
       Posible causa de diferencia: la web manda `40220_ValorDelVehiculo` en 0 (no se pide
       suma asegurada), y Provincia usa su valuación por defecto.
 
-- [x] **Mercantil Andina** agregada (`mercantil-cot.js`). **DESACTIVADA en el cotizador**
-      (línea comentada en `CO_CIAS`, index.html y cotizar.html) hasta destrabar el acceso.
+- [x] **Mercantil Andina** agregada (`mercantil-cot.js`). **HOY ESTÁ ACTIVA** en `CO_CIAS`
+      (index.html y cotizar.html) — esta nota decía "DESACTIVADA" y ya no era cierto.
+      El `HOST` pasó a ser configurable por `MERCANTIL_HOST` (default: testing).
       Diagnóstico 07/2026 (con el debug ?debug=1, ya quitado): login OK (da token), busca y
       **encuentra el vehículo** OK, pero al cotizar en `apidev.mercantilandina.com.ar` devuelve
       **HTTP 403 · MCA007: "No cuenta con permisos para cotizar con esta cuenta de productor"**
@@ -47,8 +86,9 @@
       entorno de test. **Bloqueado del lado de Mercantil.**
       **Para destrabar:** que Mercantil (a) habilite al productor 87139 para cotizar, o (b) dé
       acceso a **producción** (URL + suscripción/subkey productivos). Cuando eso esté:
-      - [ ] Pasar `HOST` a producción en `mercantil-cot.js` (hoy `apidev.mercantilandina.com.ar`).
-      - [ ] Descomentar la línea de Mercantil en `CO_CIAS` (index.html y cotizar.html).
+      - [ ] Cargar `MERCANTIL_HOST = https://api.mercantilandina.com.ar` en Netlify
+            (ya no hace falta tocar el código: el host se lee de la variable).
+      - [x] Mercantil ya está activa en `CO_CIAS` (index.html y cotizar.html).
       - [ ] Confirmar código de **uso comercial** (`USO_COMERCIAL`, hoy 2).
 
 - [x] **Provincia — verificado OK (07/2026)**. Con el debug se confirmó que la web SÍ aplica

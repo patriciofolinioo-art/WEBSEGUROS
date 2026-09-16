@@ -158,18 +158,31 @@ const CO_WA = '5491154522619';
 // ── COMPAÑÍAS QUE COTIZAN ONLINE ──
 // Para sumar una compañía nueva: armá su proxy (ej. mercantil-cot.js) y agregá una línea acá.
 // El proxy debe devolver { opciones:[{plan,cobertura,premio}], error? } igual que provincia-cot.
+// ── Compañías del cotizador ─────────────────────────────────────────────────────
+// Las 5 están ACTIVAS. Están ordenadas por ENTORNO: primero las que salen a producción
+// solas, después las que caen a testing si falta la variable en Netlify.
+//
+// Este orden NO decide qué precio se muestra primero: cada grupo de planes se reordena
+// por premio en coAgruparPlanes(). Lo único que sigue este orden son los chips de estado.
+//
+// Para saber a qué entorno está saliendo cada una HOY (lo que diga acá es el default del
+// código, no lo que haya cargado en Netlify):
+//   https://sanisidroseguros.com.ar/.netlify/functions/<cia>-cot?debug=1  → campo HOST/BASE
 const CO_CIAS = [
+  // PRODUCCIÓN, siempre: la URL está fija en el código, no hay variable que la cambie.
   { id:'provincia', nombre:'Provincia Seguros', proxy:'/.netlify/functions/provincia-cot', color:'#8e44ad', soportaBuscarModelo:true }
-  // MERCANTIL activo. ⚠️ HOST sigue en TEST (apidev) → muestra precios de prueba. Para precios
-  // reales hay que pasar HOST a producción en mercantil-cot.js (falta la URL productiva).
-  ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
-  ,{ id:'digna', nombre:'Digna Seguros', proxy:'/.netlify/functions/digna-cot', color:'#ff6600', soportaBuscarModelo:false }
-  // GALICIA — activa. Apunta a PRE (testing) por defecto; para precios reales cargar GALICIA_BASE
-  // con la URL de producción en Netlify. Si falla, no rompe las otras cías (se ignora su error).
-  ,{ id:'galicia', nombre:'Galicia Seguros', proxy:'/.netlify/functions/galicia-cot', color:'#e30613', soportaBuscarModelo:false }
-  // PARANÁ (SOAP) — lista. Reactivar quitando el "//" cuando el debug (?debug=1) cotice OK y estén
-  // cargadas las env vars PARANA_SISTEMA_ORIGEN y PARANA_PRODUCTOR en Netlify.
+  // PRODUCCIÓN por defecto: productores.paranaseguros.com.ar/PARANA_COMERCIAL_PROD
+  // PARANA_BASE solo hace falta para VOLVER a testing.
   ,{ id:'parana', nombre:'Paraná Seguros', proxy:'/.netlify/functions/parana-cot', color:'#0072bc', soportaBuscarModelo:false }
+  // ⚠️ TESTING por defecto (apidev.mercantilandina.com.ar) → precios de prueba, no reales.
+  // Producción: MERCANTIL_HOST = https://api.mercantilandina.com.ar
+  ,{ id:'mercantil', nombre:'Mercantil Andina', proxy:'/.netlify/functions/mercantil-cot', color:'#1a6e3c', soportaBuscarModelo:false }
+  // ⚠️ TESTING por defecto (equiswebtest.digna.seg.ar) → precios de prueba, no reales.
+  // Producción: DIGNA_BASE_URL con la URL productiva.
+  ,{ id:'digna', nombre:'Digna Seguros', proxy:'/.netlify/functions/digna-cot', color:'#ff6600', soportaBuscarModelo:false }
+  // ⚠️ PRE/TESTING por defecto (productores-pre.galiciaseguros.com.ar) → precios de prueba.
+  // Producción: GALICIA_BASE = https://productores.galiciaseguros.com.ar
+  ,{ id:'galicia', nombre:'Galicia Seguros', proxy:'/.netlify/functions/galicia-cot', color:'#e30613', soportaBuscarModelo:false }
 ];
 
 let _coOpc = [], _coDat = null; // _coOpc: lista combinada de todas las cías {cia, ciaNombre, color, plan, cobertura, premio}

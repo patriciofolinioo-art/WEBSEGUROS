@@ -11,8 +11,9 @@
 //  ⚠️ CONFIG por variables de entorno de Netlify (los provee Paraná / comercial):
 //      PARANA_SISTEMA_ORIGEN = "Origen de cotización" definido en el sistema (obligatorio)
 //      PARANA_PRODUCTOR      = código de productor en Paraná (obligatorio)
-//      PARANA_PLAN           = plan comercial (default PLAN1)
-//      PARANA_BASE           = (opcional) URL base. Default: PRUE (test).
+//      PARANA_PLAN           = plan comercial (default NPM)
+//      PARANA_BASE           = (opcional) URL base. Default: PROD (producción).
+//                              Setearla SOLO para volver a testing (PRUE).
 //      PARANA_RAMA / PARANA_FORMA_PAGO / PARANA_MODO_FACT / PARANA_COND_PAGO = overrides opcionales.
 //
 //  ⚠️ El manual no trae ejemplo de RESPONSE → el parseo de premios se afina con el debug (?debug=1),
