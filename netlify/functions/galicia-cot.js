@@ -55,7 +55,10 @@ const COMISION = 20;             // % de comisión del productor (nodo ProductoC
 const ID_PROVINCIA_DEFAULT = 1;
 const ID_LOCALIDAD_DEFAULT = 1;
 
-let _cache = { token: null, exp: 0 };
+let _cache = { token: null, exp: 0, tipo: 'Bearer' };
+
+// Header Authorization tal cual lo pide Galicia: usa el token_type devuelto (normalmente "bearer").
+function authHeader() { return (_cache.tipo || 'Bearer') + ' ' + _cache.token; }
 
 // Limpia comillas/espacios que a veces quedan al pegar en las env vars de Netlify.
 function limpiar(v) { return (v || '').replace(/^['"\s]+|['"\s]+$/g, ''); }
@@ -75,7 +78,8 @@ async function getToken() {
   const j = await resp.json().catch(() => ({}));
   const token = j.access_token;
   if (!token) throw new Error('No se obtuvo access_token de Galicia.');
-  _cache = { token, exp: Date.now() + ((j.expires_in || 3600) - 60) * 1000 };
+  const tipo = j.token_type ? (j.token_type.charAt(0).toUpperCase() + j.token_type.slice(1)) : 'Bearer';
+  _cache = { token, exp: Date.now() + ((j.expires_in || 3600) - 60) * 1000, tipo };
   return token;
 }
 
@@ -223,7 +227,10 @@ exports.handler = async function (event) {
       dbg.idInfoAuto = idInfoAuto;
       if (idInfoAuto != null) {
         const payload = construirPayload({ marca, modelo, anio, cp: q.cp || '1001', uso: 'particular' }, idInfoAuto, ID_COBERTURA_TODAS);
-        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': ACCEPT_COTIZAR, 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
+        dbg.tokenLen = token ? token.length : 0;
+        dbg.tokenTipo = _cache.tipo;
+        dbg.tokenEsJwt = !!(token && token.split('.').length === 3);
+        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': ACCEPT_COTIZAR, 'Content-Type': 'application/json', 'Authorization': authHeader() }, body: JSON.stringify(payload) });
         dbg.cotizarStatus = r.status;
         dbg.acceptEnviado = ACCEPT_COTIZAR;
         const raw = await r.text();
@@ -254,7 +261,7 @@ exports.handler = async function (event) {
 
     // UNA sola llamada con IdCobertura 99 -> Galicia devuelve todas las coberturas.
     const payload = construirPayload(dat, idInfoAuto, ID_COBERTURA_TODAS);
-    const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': ACCEPT_COTIZAR, 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
+    const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': ACCEPT_COTIZAR, 'Content-Type': 'application/json', 'Authorization': authHeader() }, body: JSON.stringify(payload) });
     if (!r.ok) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Galicia HTTP ' + r.status, opciones: [] }) };
     }
