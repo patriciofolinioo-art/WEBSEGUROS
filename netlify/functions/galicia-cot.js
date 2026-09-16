@@ -28,6 +28,9 @@ const TOKEN_URL   = BASE + '/Security/token';
 // Ruta de cotización configurable por env (en PRODUCCIÓN puede diferir de PRE).
 // PRE: /Motor/api/TechnicalPricing/Cotizar · si producción da 404 "API doesn't exist", ajustar con GALICIA_COTIZAR_PATH.
 const COTIZAR_URL = BASE + (process.env.GALICIA_COTIZAR_PATH || '/Motor/api/TechnicalPricing/Cotizar');
+// IMPORTANTE: Technical Pricing exige Accept con version=3. Sin la versión el server responde
+// con la version 1 -> 404 "The API 'Version1.TechnicalPricing' doesn't exist" (manual GS, pág. 6).
+const ACCEPT_COTIZAR = process.env.GALICIA_ACCEPT || 'application/json;version=3';
 
 // $type de .NET (Technical Pricing, Cotización Input). Si Galicia los rechaza, ajustar acá.
 const T_PERSONA  = 'Motor.Areas.SeguroNuevo.Version3.TechnicalPricing.Models.Cotizacion.Input.PersonaFisica, Motor, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null';
@@ -203,6 +206,7 @@ exports.handler = async function (event) {
     const dbg = { _debug: true, env: {
       GALICIA_USER: !!process.env.GALICIA_USER, GALICIA_PASS: !!process.env.GALICIA_PASS,
       GALICIA_INSTITUCION: process.env.GALICIA_INSTITUCION || null, BASE,
+      COTIZAR_URL, ACCEPT_COTIZAR,
       userVista: mask(_u), passLen: _p ? _p.length : 0,
       store: limpiar(process.env.GALICIA_STORE) || 'B2B',
       userTeniaEspaciosOComillas: (process.env.GALICIA_USER || '') !== _u,
@@ -217,8 +221,9 @@ exports.handler = async function (event) {
       dbg.idInfoAuto = idInfoAuto;
       if (idInfoAuto != null) {
         const payload = construirPayload({ marca, modelo, anio, cp: q.cp || '1001', uso: 'particular' }, idInfoAuto, ID_COBERTURA_TODAS);
-        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
+        const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': ACCEPT_COTIZAR, 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
         dbg.cotizarStatus = r.status;
+        dbg.acceptEnviado = ACCEPT_COTIZAR;
         const raw = await r.text();
         try { dbg.coberturas = parsearProductos(JSON.parse(raw)); } catch (e) { dbg.parseError = e.message; }
         dbg.cotizarRaw = raw.slice(0, 4000);
@@ -247,7 +252,7 @@ exports.handler = async function (event) {
 
     // UNA sola llamada con IdCobertura 99 -> Galicia devuelve todas las coberturas.
     const payload = construirPayload(dat, idInfoAuto, ID_COBERTURA_TODAS);
-    const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
+    const r = await fetch(COTIZAR_URL, { method: 'POST', headers: { 'Accept': ACCEPT_COTIZAR, 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
     if (!r.ok) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Galicia HTTP ' + r.status, opciones: [] }) };
     }
