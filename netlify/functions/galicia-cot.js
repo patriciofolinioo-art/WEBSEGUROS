@@ -118,6 +118,8 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
     NumeroOperacionProductor: 0,
     VigenciaDesde: desde,
     VigenciaHasta: hasta,
+    // IdVigencia: período de la póliza (tabla Vigencia). 1 = ANUAL (estándar auto). Marcado requerido en el manual GS.
+    IdVigencia: Number(process.env.GALICIA_ID_VIGENCIA) || 1,
     FormaDePago: null,
     // Nodo del productor: comisión + códigos que da Galicia. CodigoProducto e IdProductor son obligatorios.
     ProductoComercial: {
