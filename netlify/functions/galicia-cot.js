@@ -55,7 +55,7 @@ const COMISION = 20;             // % de comisión del productor (nodo ProductoC
 const ID_PROVINCIA_DEFAULT = 1;
 const ID_LOCALIDAD_DEFAULT = 1;
 
-let _cache = { token: null, exp: 0, tipo: 'Bearer' };
+let _cache = { token: null, exp: 0, tipo: 'bearer' };
 
 // Header Authorization tal cual lo pide Galicia: usa el token_type devuelto (normalmente "bearer").
 function authHeader() { return (_cache.tipo || 'Bearer') + ' ' + _cache.token; }
@@ -78,7 +78,8 @@ async function getToken() {
   const j = await resp.json().catch(() => ({}));
   const token = j.access_token;
   if (!token) throw new Error('No se obtuvo access_token de Galicia.');
-  const tipo = j.token_type ? (j.token_type.charAt(0).toUpperCase() + j.token_type.slice(1)) : 'Bearer';
+  // token_type VERBATIM (Galicia devuelve "bearer" en minúscula y su middleware lo compara exacto).
+  const tipo = j.token_type || 'bearer';
   _cache = { token, exp: Date.now() + ((j.expires_in || 3600) - 60) * 1000, tipo };
   return token;
 }
