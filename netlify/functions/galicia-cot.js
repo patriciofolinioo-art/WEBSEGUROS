@@ -49,6 +49,9 @@ const ID_KM_ANIO = 2;            // Hasta 25.000 km/año
 const ID_COCHERA = 3;            // Ninguno
 const ID_CONDICION_FISCAL = 4;   // Consumidor Final
 const ID_TIPO_DOCUMENTO = 96;    // DNI
+const ID_ESTADO_CIVIL = Number(process.env.GALICIA_ID_ESTADO_CIVIL) || 1;   // 1=Soltero (tabla EstadoCivil)
+const ID_FORMA_PAGO = Number(process.env.GALICIA_ID_FORMA_PAGO);            // 0=Débito banco,1=Débito tarjeta,3=Pago Fácil,5=Convenio
+const CANT_CUOTAS = Number(process.env.GALICIA_CANT_CUOTAS) || 1;
 const COMISION = 20;             // % de comisión del productor (nodo ProductoComercial)
 // ⚠️ Zona de riesgo: la tabla Localidad tiene 20k filas. Por ahora usamos un default (Buenos Aires).
 //    Afecta el precio por zona; cuando esté OK, resolver IdProvincia/IdLocalidad reales desde el CP.
@@ -117,6 +120,9 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
   idCobertura = idCobertura || ID_COBERTURA_TODAS;
   const { desde, hasta } = fechasVigencia();
   const cp = String(dat.cp || '1001');
+  // Teléfono: el motor exige Número > 0 (no acepta ceros). Tomamos el del cliente o un default válido.
+  const areaNum = parseInt(String(dat.area || '11').replace(/\D/g, ''), 10) || 11;
+  const telNum = parseInt(String(dat.tel || '').replace(/\D/g, ''), 10) || 1122334455;
   return {
     IdRequest: 1,
     IdInstitucion: Number(process.env.GALICIA_INSTITUCION) || 0,
@@ -125,7 +131,10 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
     VigenciaHasta: hasta,
     // IdVigencia: período de la póliza (tabla Vigencia). 1 = ANUAL (estándar auto). Marcado requerido en el manual GS.
     IdVigencia: Number(process.env.GALICIA_ID_VIGENCIA) || 1,
-    FormaDePago: null,
+    // La condición fiscal de la póliza debe existir y coincidir con la del tomador.
+    IdCondicionFiscal: ID_CONDICION_FISCAL,
+    // FormaDePago es obligatorio (no puede ser null). Default 1 cuota; ajustable por env.
+    FormaDePago: { IdFormaDePago: Number.isFinite(ID_FORMA_PAGO) ? ID_FORMA_PAGO : 1, CantidadCuotas: CANT_CUOTAS },
     // Nodo del productor: comisión + códigos que da Galicia. CodigoProducto e IdProductor son obligatorios.
     ProductoComercial: {
       CodigoProducto: Number(process.env.GALICIA_PRODUCTO) || 774,
@@ -140,8 +149,9 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
       FechaNacimiento: dat.nac || '1990-01-01',
       Sexo: dat.genero === 'F' ? 'F' : 'M',
       Email: dat.email || 'cliente@web.com',
+      IdEstadoCivil: ID_ESTADO_CIVIL,
       Domicilios: [{ IdProvincia: ID_PROVINCIA_DEFAULT, CodigoPostal: cp, IdLocalidad: ID_LOCALIDAD_DEFAULT, DescripcionLocalidad: '', Calle: 'S/D', Numero: '0', IdTipoDomicilio: 1 }],
-      Telefonos: [{ IdTipoTelefono: 1, CodigoDeArea: '011', Celular: true, Numero: (dat.tel || '').replace(/\D/g, '') || '0000000000' }],
+      Telefonos: [{ IdTipoTelefono: 1, CodigoDeArea: areaNum, Celular: true, Numero: telNum }],
       Documentos: [{ IdTipoDocumento: ID_TIPO_DOCUMENTO, Documento: (dat.dni || '10000000').replace(/\D/g, '') }],
       IdCondicionFiscal: ID_CONDICION_FISCAL
     },
