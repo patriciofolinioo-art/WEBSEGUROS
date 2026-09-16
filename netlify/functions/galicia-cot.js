@@ -135,12 +135,14 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
     IdCondicionFiscal: ID_CONDICION_FISCAL,
     // FormaDePago es obligatorio (no puede ser null). Default 1 cuota; ajustable por env.
     FormaDePago: { IdFormaDePago: Number.isFinite(ID_FORMA_PAGO) ? ID_FORMA_PAGO : 1, CantidadCuotas: CANT_CUOTAS },
-    // Nodo del productor: comisión + códigos que da Galicia. CodigoProducto e IdProductor son obligatorios.
-    ProductoComercial: {
-      CodigoProducto: Number(process.env.GALICIA_PRODUCTO) || 774,
-      Comision: COMISION,
-      IdProductor: Number(process.env.GALICIA_PRODUCTOR) || 0
-    },
+    // Nodo del productor. CodigoProducto lo asigna Galicia por productor; si GALICIA_PRODUCTO
+    // NO está seteado, lo omitimos para probar si el motor autoselecciona el único producto del productor.
+    ProductoComercial: (function () {
+      const pc = { Comision: COMISION, IdProductor: Number(process.env.GALICIA_PRODUCTOR) || 0 };
+      const cod = parseInt(process.env.GALICIA_PRODUCTO, 10);
+      if (Number.isFinite(cod) && cod > 0) pc.CodigoProducto = cod;
+      return pc;
+    })(),
     PolizaElectronica: { EmailProductor: 'pfolini.si@gmail.com', EmailOrganizador: 'pfolini.si@gmail.com', EmailCliente: dat.email || 'cliente@web.com' },
     Tomador: {
       $type: T_PERSONA,
