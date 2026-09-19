@@ -44,6 +44,7 @@ body{font-family:Nunito Sans,sans-serif;background:linear-gradient(160deg,#0a1a3
   <div class=intro>
     <h1>Cotizá tu seguro <span>al instante</span></h1>
     <p>Cotizá en las mejores compañías al instante. Si te gusta, lo enviás al productor para emitir.</p>
+    <div style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:#ffffff10;border:1px solid #c8a84b40;border-radius:999px;padding:6px 14px;font-size:11.5px;color:#e8dcc2;font-weight:600;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c8a84b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/><path d="M9.2 12l1.9 1.9 3.7-3.9"/></svg>Productor asesor matriculado · Asesoramiento sin costo</div>
   </div>
 
   <div class=card>
@@ -671,6 +672,7 @@ async function coSolicitar(i, via){
     + '<div style="background:#eef4fb;border-radius:10px;padding:12px;font-size:12px;color:#2c5480;line-height:1.5;">'
     +   'Ante cualquier duda, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.'
     + '</div>'
+    + '<button onclick="coRecomendar()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;background:transparent;border:1.5px solid #1fa855;color:#0e7a42;border-radius:11px;padding:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-11.3 7.9L3 21l1.6-6.7A8.4 8.4 0 1 1 21 11.5Z"/></svg>Recomendá San Isidro Seguros</button>'
     + '</div>';
   const _b = document.querySelector('#coResultados>button');
   if(_b) _b.style.display='none';
@@ -740,9 +742,16 @@ async function coEnviarLead(i){
     +   'Un <strong>productor matriculado</strong> te va a contactar a la brevedad'+dondeTxt+' para confirmar la cobertura y avanzar con la emisión.'
     + '</div>'
     + '<div style="background:#eef4fb;border-radius:10px;padding:12px;font-size:12px;color:#2c5480;line-height:1.5;">Ante cualquier duda, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.</div>'
+    + '<button onclick="coRecomendar()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;background:transparent;border:1.5px solid #1fa855;color:#0e7a42;border-radius:11px;padding:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-11.3 7.9L3 21l1.6-6.7A8.4 8.4 0 1 1 21 11.5Z"/></svg>Recomendá San Isidro Seguros</button>'
     + '</div>';
   const _b = document.querySelector('#coResultados>button');
   if(_b) _b.style.display='none';
+}
+
+// Compartir/recomendar por WhatsApp (boca a boca)
+function coRecomendar(){
+  const txt = '¡Hola! Te recomiendo San Isidro Seguros para cotizar tu seguro online en las mejores compañías, con asesoramiento sin costo 👉 https://sanisidroseguros.com.ar';
+  window.open('https://wa.me/?text='+encodeURIComponent(txt), '_blank');
 }
 
 function coVolver(){
