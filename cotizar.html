@@ -606,8 +606,8 @@ function coElegir(i){
     + '</div>'
     + '<div style="font-size:14px;color:#5a6b7d;margin-bottom:16px;text-align:center;line-height:1.5;">¿Cómo preferís que avancemos con la emisión?</div>'
     + '<div style="display:flex;gap:11px;">'
-    +   '<button onclick="coSolicitar('+i+',\'whatsapp\')" style="flex:1;min-width:0;background:#1fa855;color:#fff;border:none;border-radius:12px;padding:15px 10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">💬 WhatsApp</button>'
-    +   '<button onclick="coFormLead('+i+')" style="flex:1;min-width:0;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:15px 10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">📋 Dejar mis datos</button>'
+    +   '<button onclick="coSolicitar('+i+',\'whatsapp\')" style="flex:1;min-width:0;background:#1fa855;color:#fff;border:none;border-radius:12px;padding:15px 10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-11.3 7.9L3 21l1.6-6.7A8.4 8.4 0 1 1 21 11.5Z"/></svg>WhatsApp</button>'
+    +   '<button onclick="coFormLead('+i+')" style="flex:1;min-width:0;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:15px 10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5M8 13h8M8 17h5"/><path d="M6 3h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg>Dejar mis datos</button>'
     + '</div>'
     + '<button onclick="document.querySelector(\'#coResultados>button\').style.display=\'\';coRenderPlanes()" style="display:block;margin:14px auto 2px;background:none;border:none;color:#8a97a4;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">‹ Volver a las opciones</button>'
     + '</div>';
@@ -659,7 +659,7 @@ async function coSolicitar(i, via){
   const cont = document.getElementById('co_listaPlanes');
   cont.innerHTML =
     '<div style="max-width:440px;margin:0 auto;text-align:center;padding:18px 10px;">'
-    + '<div style="font-size:44px;margin-bottom:10px;">✅</div>'
+    + '<div style="margin-bottom:12px;"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#1fa855" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></div>'
     + '<div style="font-size:18px;font-weight:800;color:#13212f;margin-bottom:8px;">¡Solicitud de emisión enviada!</div>'
     + '<div style="font-size:13.5px;color:#5a6b7d;line-height:1.6;margin-bottom:16px;">'
     +   'Recibimos tu pedido por <strong>'+(op.ciaNombre||'Provincia Seguros')+'</strong>:<br>'
@@ -669,7 +669,7 @@ async function coSolicitar(i, via){
         : 'Un <strong>productor matriculado</strong> se va a comunicar con vos por <strong>WhatsApp</strong> para confirmar la cobertura y avanzar con la emisión.')
     + '</div>'
     + '<div style="background:#eef4fb;border-radius:10px;padding:12px;font-size:12px;color:#2c5480;line-height:1.5;">'
-    +   '📲 Ante cualquier duda, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.'
+    +   'Ante cualquier duda, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.'
     + '</div>'
     + '</div>';
   const _b = document.querySelector('#coResultados>button');
@@ -694,6 +694,7 @@ function coFormLead(i){
     + '<div style="margin-bottom:12px;"><label style="'+lblCss+'">Nombre y apellido</label><input id="coLeadNombre" value="'+val(_coDat.nombre)+'" placeholder="Tu nombre" style="'+inpCss+'"></div>'
     + '<div style="margin-bottom:12px;"><label style="'+lblCss+'">Teléfono <span style="font-weight:500;color:#8a97a4;">(opcional)</span></label><input id="coLeadTel" value="'+val(_coDat.tel)+'" inputmode="tel" placeholder="Ej: 11 5555 5555" style="'+inpCss+'"></div>'
     + '<div style="margin-bottom:4px;"><label style="'+lblCss+'">Email <span style="font-weight:500;color:#8a97a4;">(opcional)</span></label><input id="coLeadEmail" value="'+val(_coDat.email)+'" inputmode="email" placeholder="tucorreo@email.com" style="'+inpCss+'"></div>'
+    + '<div style="font-size:11.5px;color:#8a97a4;margin-top:12px;display:flex;align-items:center;gap:7px;line-height:1.4;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Tus datos solo los usa tu productor para contactarte. No los compartimos.</div>'
     + '<div id="coLeadErr" style="display:none;font-size:12px;color:#b23b3b;margin-top:8px;">Dejanos al menos un teléfono o un email para poder contactarte.</div>'
     + '<button onclick="coEnviarLead('+i+')" style="width:100%;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:16px;">Enviar solicitud</button>'
     + '<button onclick="coElegir('+i+')" style="display:block;margin:12px auto 2px;background:none;border:none;color:#8a97a4;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">‹ Volver</button>'
@@ -731,14 +732,14 @@ async function coEnviarLead(i){
   const cont = document.getElementById('co_listaPlanes');
   cont.innerHTML =
     '<div style="max-width:440px;margin:0 auto;text-align:center;padding:18px 10px;">'
-    + '<div style="font-size:44px;margin-bottom:10px;">✅</div>'
+    + '<div style="margin-bottom:12px;"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#1fa855" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></div>'
     + '<div style="font-size:18px;font-weight:800;color:#13212f;margin-bottom:8px;">¡Solicitud de emisión enviada!</div>'
     + '<div style="font-size:13.5px;color:#5a6b7d;line-height:1.6;margin-bottom:16px;">'
     +   'Recibimos tu pedido por <strong>'+(op.ciaNombre||'Provincia Seguros')+'</strong>:<br>'
     +   planTxt+(op.cobertura||'')+' · <strong>'+precio+'/mes</strong><br><br>'
     +   'Un <strong>productor matriculado</strong> te va a contactar a la brevedad'+dondeTxt+' para confirmar la cobertura y avanzar con la emisión.'
     + '</div>'
-    + '<div style="background:#eef4fb;border-radius:10px;padding:12px;font-size:12px;color:#2c5480;line-height:1.5;">📲 Ante cualquier duda, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.</div>'
+    + '<div style="background:#eef4fb;border-radius:10px;padding:12px;font-size:12px;color:#2c5480;line-height:1.5;">Ante cualquier duda, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.</div>'
     + '</div>';
   const _b = document.querySelector('#coResultados>button');
   if(_b) _b.style.display='none';
@@ -859,7 +860,7 @@ window.addEventListener('DOMContentLoaded', coAbrir);
       <!-- Step 4: Éxito -->
       <div class=sol-step id=solStep4>
         <div style="text-align:center;padding:24px 10px;">
-          <div style="font-size:48px;margin-bottom:12px;">✅</div>
+          <div style="margin-bottom:12px;"><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#1fa855" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></div>
           <div style="font-size:18px;font-weight:800;color:var(--navy-dark);margin-bottom:8px;">¡Solicitud enviada!</div>
           <div style="font-size:13px;color:var(--gray);line-height:1.6;margin-bottom:20px;">Recibimos tu pedido. Un productor matriculado te va a contactar a la brevedad con las mejores opciones.</div>
           <button class="sol-btn sol-btn-next" onclick=solReset()>Nueva solicitud</button>
