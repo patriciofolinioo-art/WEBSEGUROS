@@ -27,7 +27,12 @@ const CLIENT_ID  = process.env.MERCANTIL_CLIENT_ID || 'api-clientes-login';
 // ── Parámetros comerciales ──
 // La cuenta (test 15056) exige bonificación = 0. La comisión válida puede ser 10, 20, 25 o 30
 // (confirmado con el debug de combos). Con bonif 25 la cuenta rechazaba la cotización (MCA008).
-const COMISION     = 20; // % de comisión del productor. Valores válidos para esta cuenta: 10/20/25/30
+// Comisión del productor: bajarla abarata el premio para el cliente (ídem Provincia).
+// Valores válidos para esta cuenta: 10/20/25/30. Default 10 (el más bajo = más barato).
+// Ajustable sin redeploy con la env var MERCANTIL_COMISION.
+const COMISION_VALIDAS = [10, 20, 25, 30];
+const _comEnv = parseInt(process.env.MERCANTIL_COMISION, 10);
+const COMISION     = COMISION_VALIDAS.includes(_comEnv) ? _comEnv : 10;
 const BONIFICACION = 0;  // % de bonificación. DEBE ser 0 para esta cuenta.
 
 // Uso del vehículo en Mercantil: 1 = Particular (por defecto)
@@ -193,6 +198,7 @@ exports.handler = async function (event) {
     const _u = (process.env.MERCANTIL_USER || ''), _p = (process.env.MERCANTIL_PASS || ''), _s = (process.env.MERCANTIL_SUBKEY || '');
     const dbg = { _debug: true, env: {
       MERCANTIL_PRODUCTOR: process.env.MERCANTIL_PRODUCTOR || null, HOST, LOGIN_URL, CLIENT_ID,
+      COMISION, BONIFICACION,
       userLen: _u.length, passLen: _p.length, subkeyLen: _s.length,
       userConEspacios: _u !== _u.trim(), passConEspacios: _p !== _p.trim()
     } };
