@@ -58,16 +58,6 @@ body{font-family:Nunito Sans,sans-serif;background:linear-gradient(160deg,#0a1a3
         </div>
         <div style="display:flex;gap:10px;">
           <div style="flex:1;">
-            <label class=co-lbl>¿Cómo te contactamos? *</label>
-            <select id=co_via class=co-inp onchange="coViaChange()"><option value=whatsapp>WhatsApp</option><option value=email>Email</option></select>
-          </div>
-          <div style="flex:1;">
-            <label class=co-lbl id=co_contactoLbl>WhatsApp *</label>
-            <input id=co_contacto class=co-inp inputmode=tel placeholder="11 1234-5678">
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;">
-          <div style="flex:1;">
             <label class=co-lbl>Año de nacimiento *</label>
             <select id=co_nacAnio class=co-inp><option value="">Año…</option></select>
           </div>
@@ -266,7 +256,7 @@ function coAbrir(){
 function coCerrar(){ /* no aplica en página independiente */ }
 
 function coViaChange(){
-  const via = document.getElementById('co_via').value;
+  const via = '';
   const lbl = document.getElementById('co_contactoLbl');
   const inp = document.getElementById('co_contacto');
   if(via==='email'){ lbl.textContent='Email *'; inp.placeholder='tu@email.com'; inp.inputMode='email'; }
@@ -436,8 +426,8 @@ async function coBuscarModelos(){
 
 async function coCotizar(){
   const nombre = (document.getElementById('co_nombre').value||'').trim();
-  const via = document.getElementById('co_via').value;
-  const contacto = (document.getElementById('co_contacto').value||'').trim();
+  const via = '';
+  const contacto = '';
   const nacAnio = document.getElementById('co_nacAnio').value;
   // La compañía necesita una fecha completa: inventamos el 15 de junio del año elegido.
   const nac = nacAnio ? (nacAnio + '-06-15') : '';
@@ -460,8 +450,6 @@ async function coCotizar(){
 
   document.getElementById('coError').style.display='none';
   if(!nombre){ return _coErr('Ingresá tu nombre.'); }
-  if(!contacto){ return _coErr(via==='email'?'Ingresá tu email.':'Ingresá tu WhatsApp.'); }
-  if(via==='email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contacto)){ return _coErr('Email inválido.'); }
   if(!nacAnio){ return _coErr('Elegí tu año de nacimiento.'); }
   if(!marca){ return _coErr('Elegí la marca.'); }
   if(!_coSearchMode && !modeloSel.value){ return _coErr('Elegí el modelo.'); }
