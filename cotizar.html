@@ -570,7 +570,7 @@ function coRenderPlanes(){
   if(cargando){
     html+='<div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:#8a97a4;margin-top:'+(hayItems?'14px':'24px')+';padding:'+(hayItems?'0':'20px 0')+';"><span class="co-spin"></span>'+(hayItems?'Buscando más precios…':'Consultando compañías, aguardá unos segundos…')+'</div>';
   } else if(!hayItems){
-    html+='<div style="font-size:13px;color:#b23b3b;text-align:center;margin-top:20px;padding:16px;background:#fdf1f1;border-radius:10px;">No se obtuvieron precios para este vehículo.<br>Escribinos por WhatsApp y te ayudamos al instante.</div>';
+    html+='<div style="text-align:center;margin-top:20px;padding:18px 16px;background:#fbf8f2;border:1px solid #e4e9ef;border-radius:12px;">'+'<div style="font-size:14.5px;font-weight:800;color:#13212f;">No obtuvimos precios para esta versión</div>'+'<div style="font-size:12.5px;color:#5a6b7d;line-height:1.55;margin:8px 0 15px;">Puede que la versión elegida no corresponda al año <strong>'+_coDat.anio+'</strong>. Probá con <strong>otra versión</strong>, o lo cotizamos a mano al instante.</div>'+'<button onclick="coFallbackWA()" style="display:inline-flex;align-items:center;gap:8px;background:#1fa855;color:#fff;border:none;border-radius:11px;padding:12px 20px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-11.3 7.9L3 21l1.6-6.7A8.4 8.4 0 1 1 21 11.5Z"/></svg>Cotizar por WhatsApp</button>'+'</div>';
   }
 
   html+='<div style="font-size:12px;color:#8a97a4;margin-top:16px;line-height:1.5;text-align:center;">Precios estimados sujetos a verificación de la compañía. Al solicitar, un productor matriculado confirma y emite tu póliza.</div>';
@@ -742,6 +742,13 @@ function coRecomendar(){
   window.open('https://wa.me/?text='+encodeURIComponent(txt), '_blank');
 }
 
+function coFallbackWA(){
+  if(typeof _coDat==='undefined' || !_coDat) return;
+  const g = _coDat.gnc==='si' ? ' (con GNC)' : '';
+  const nombre = _coDat.nombre ? ('Soy '+_coDat.nombre+'. ') : '';
+  const texto = 'Hola! '+nombre+'Coticé online un '+_coDat.marca+' '+_coDat.modelo+' '+_coDat.anio+g+' pero no me trajo precios. ¿Me lo cotizás vos?';
+  window.open('https://wa.me/'+CO_WA+'?text='+encodeURIComponent(texto), '_blank');
+}
 function coVolver(){
   _coOpc = [];
   document.getElementById('coResultados').style.display='none';
