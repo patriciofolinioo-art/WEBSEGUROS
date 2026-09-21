@@ -65,12 +65,17 @@ function vigenciaDesde() {
   }).format(new Date());
 }
 
-// Resuelve marca + texto de modelo → códigos de Paraná (codMarca / cod del modelo).
-// El texto viene del catálogo InfoAuto ("FOCUS S 1.6 L/15", "208 FELINE 1.6 L/16"): el 1er
-// token SIEMPRE es el modelo (FOCUS, 208, CRONOS). El resto son cilindrada/terminación/ruido.
-function buscarVehiculo(marca, textoModelo) {
+// Rankea los modelos de Paraná para (marca + texto de modelo). Devuelve los mejores candidatos,
+// MEJOR PRIMERO. El texto viene del catálogo InfoAuto ("FOCUS S 1.6 L/15", "208 FELINE 1.6"):
+// el 1er token SIEMPRE es el modelo (FOCUS, 208, CRONOS); el resto es cilindrada/terminación/ruido.
+//
+// Por qué una LISTA y no uno solo: la base de Paraná NO trae el año por modelo, y Paraná valida la
+// relación vehículo-año. Un "Gol" 2018 puede matchear primero el "GOL GL" viejo (no válido para
+// 2018 → error). Devolviendo varios candidatos, la cotización prueba el siguiente (GOL TREND) hasta
+// que Paraná acepta el año.
+function rankearVehiculos(marca, textoModelo, maxN) {
   const m = PARANA_VEHIC[(marca || '').trim().toUpperCase()];
-  if (!m || !m.modelos) return null;
+  if (!m || !m.modelos) return [];
   const q = (textoModelo || '').toUpperCase();
   // Ruido de la descripción InfoAuto (PTAS, AT, MT, L/XX, nº de puertas). OJO: NO filtramos el
   // 1er token aunque sea numérico — para Peugeot/Fiat/BMW/Alfa el modelo ES un número (208, 147,
@@ -78,26 +83,25 @@ function buscarVehiculo(marca, textoModelo) {
   const RUIDO = /^(\d+|PTAS?|PUERTAS?|AT|MT|CVT|L\/?\d+|\d+P)$/;
   const raw = q.split(/\s+/).filter(Boolean);
   const qTokens = raw.filter((t, i) => i === 0 ? true : !RUIDO.test(t));
-  if (!qTokens.length) return null;
-  let mod = m.modelos.find(x => (x.nombre || '').toUpperCase() === q);
-  if (!mod) {
-    // El modelo (head) manda ×10; la terminación desempata. Comparación del head sin espacios
-    // para tolerar variantes de tipeo ("ECOSPORT" ↔ "ECO SPORT", "C3" ↔ "C 3").
-    const head = qTokens[0].replace(/\s+/g, '');
-    let best = null, bs = -1;
-    m.modelos.forEach(x => {
-      const nom = (x.nombre || '').toUpperCase();
-      const headMatch = nom.replace(/\s+/g, '').includes(head) ? 1 : 0;
-      const rest = qTokens.slice(1).reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0);
-      const sc = headMatch * 10 + rest;
-      if (sc > bs) { bs = sc; best = x; }
-    });
-    // Exigimos que el MODELO matchee (bs>=10). Si no está en la base de Paraná, devolvemos null
-    // (mejor "no hay precio online, consultanos" que cotizar otro auto distinto).
-    mod = (best && bs >= 10) ? best : null;
-  }
-  if (!mod) return null;
-  return { codMarca: m.codMarca, codModelo: mod.cod, nombre: mod.nombre };
+  if (!qTokens.length) return [];
+  const mk = (x) => ({ codMarca: m.codMarca, codModelo: x.cod, nombre: x.nombre });
+  // Comparación del head sin espacios para tolerar tipeo ("ECOSPORT" ↔ "ECO SPORT", "C3" ↔ "C 3").
+  const head = qTokens[0].replace(/\s+/g, '');
+  const scored = m.modelos.map(x => {
+    const nom = (x.nombre || '').toUpperCase();
+    const exact = nom === q ? 1 : 0;                                  // match exacto: prioridad máxima
+    const headMatch = nom.replace(/\s+/g, '').includes(head) ? 1 : 0; // el MODELO tiene que matchear
+    const rest = qTokens.slice(1).reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0); // terminación desempata
+    return { x, exact, headMatch, sc: exact * 1000 + headMatch * 10 + rest };
+  }).filter(o => o.headMatch === 1)   // sin modelo que matchee no hay candidato (mejor null → WhatsApp)
+    .sort((a, b) => b.sc - a.sc);
+  return scored.slice(0, maxN || 6).map(o => mk(o.x));
+}
+
+// Compatibilidad: devuelve el mejor candidato (o null).
+function buscarVehiculo(marca, textoModelo) {
+  const r = rankearVehiculos(marca, textoModelo, 1);
+  return r.length ? r[0] : null;
 }
 
 function construirSoap(dat, veh, bonifOverride) {
@@ -224,9 +228,9 @@ async function cotizarSoap(xmlBody) {
   return { status: resp.status, text };
 }
 
-// Cotiza y, si el origen no admite modificar la bonificación (error típico), reintenta sin bonificación.
-// Devuelve { xml, r, opciones, errores, reintento }.
-async function cotizarConReintento(dat, veh) {
+// Cotiza UN vehículo y, si el origen no admite modificar la bonificación (error típico), reintenta
+// sin bonificación. Devuelve { xml, r, opciones, errores, reintento }.
+async function cotizarUnVehiculo(dat, veh) {
   let xml = construirSoap(dat, veh);
   let r = await cotizarSoap(xml);
   let p = parsearRespuesta(r.text || '');
@@ -239,6 +243,29 @@ async function cotizarConReintento(dat, veh) {
     p = parsearRespuesta(r.text || '');
   }
   return { xml, r, opciones: p.opciones, errores: p.errores, reintento };
+}
+
+// El error "relación vehículo - año no válida" (o similar) significa que ESE modelo no corresponde
+// al año pedido → probamos el siguiente candidato (ej. Gol viejo → Gol Trend).
+function esErrorDeAnioOVehiculo(errores) {
+  return (errores || []).some(e => /a[ñn]o|vehículo|vehiculo|no es v[áa]lida|no v[áa]lida|relaci[óo]n/i.test(e));
+}
+
+// Recibe UNO o VARIOS candidatos y devuelve el primero que cotiza. Si un candidato falla por
+// relación vehículo-año (o no trae opciones), prueba el siguiente. Guarda el último resultado por
+// si ninguno cotiza (para reportar el error real).
+async function cotizarConReintento(dat, candidatos) {
+  const lista = (Array.isArray(candidatos) ? candidatos : [candidatos]).filter(Boolean);
+  let ultimo = null;
+  for (const veh of lista) {
+    const res = await cotizarUnVehiculo(dat, veh);
+    res.veh = veh;
+    if (res.opciones.length) return res;                 // cotizó → listo
+    ultimo = res;
+    // Sólo seguimos probando si el error es de vehículo-año o no hubo error explícito (sin opciones).
+    if (!(esErrorDeAnioOVehiculo(res.errores) || res.errores.length === 0)) break;
+  }
+  return ultimo || { xml: '', r: { status: 0, text: '' }, opciones: [], errores: [], reintento: false, veh: null };
 }
 
 exports.handler = async function (event) {
@@ -258,10 +285,11 @@ exports.handler = async function (event) {
     } };
     try {
       const marca = q.marca || 'Chevrolet', modelo = q.modelo || 'Corsa', anio = q.anio || '2015';
-      const veh = buscarVehiculo(marca, modelo);
-      dbg.vehiculo = veh;
-      if (!veh) { dbg.nota = 'vehículo no encontrado en parana_vehiculos.js'; return { statusCode: 200, headers, body: JSON.stringify(dbg) }; }
-      const cr = await cotizarConReintento({ marca, modelo, anio, cp: q.cp || '1636' }, veh);
+      const candidatos = rankearVehiculos(marca, modelo, 5);
+      dbg.candidatos = candidatos;   // todos los que se van a probar, mejor primero
+      if (!candidatos.length) { dbg.nota = 'vehículo no encontrado en parana_vehiculos.js'; return { statusCode: 200, headers, body: JSON.stringify(dbg) }; }
+      const cr = await cotizarConReintento({ marca, modelo, anio, cp: q.cp || '1636' }, candidatos);
+      dbg.vehiculoQueCotizo = cr.veh;   // cuál de los candidatos aceptó Paraná
       dbg.soapEnviado = cr.xml;
       dbg.reintentoSinBonificacion = cr.reintento;
       dbg.httpStatus = cr.r.status;
@@ -282,10 +310,10 @@ exports.handler = async function (event) {
     if (!SISTEMA_ORIGEN || !PRODUCTOR) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Paraná no configurado (PARANA_SISTEMA_ORIGEN / PARANA_PRODUCTOR).', opciones: [] }) };
     }
-    const veh = buscarVehiculo(dat.marca, dat.modelo);
-    if (!veh) return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se encontró el vehículo en la base de Paraná', opciones: [] }) };
+    const candidatos = rankearVehiculos(dat.marca, dat.modelo, 5);
+    if (!candidatos.length) return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se encontró el vehículo en la base de Paraná', opciones: [] }) };
 
-    const cr = await cotizarConReintento(dat, veh);
+    const cr = await cotizarConReintento(dat, candidatos);
     if (cr.r.status < 200 || cr.r.status >= 300) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Paraná HTTP ' + cr.r.status, opciones: [] }) };
     }
