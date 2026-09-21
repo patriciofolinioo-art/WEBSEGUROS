@@ -1544,18 +1544,31 @@ async function coModeloChange(){
   selVer.innerHTML = '<option value="">Cargando versiones…</option>';
   selVer.disabled = true;
 
-  // Versiones desde InfoAuto (marca + modelo). Cada opción trae el código InfoAuto `c` y el tipo `t`.
-  let versiones = [];
-  try{
-    const r = await fetch('/.netlify/functions/infoauto-list?accion=versiones&marca='+encodeURIComponent(marca)+'&modelo='+encodeURIComponent(modelo));
-    const j = await r.json();
-    versiones = j.versiones || [];
-  }catch(e){ versiones = []; }
-  if(reqId !== _coVerReq) return; // llegó una carga más nueva: descartamos esta
-
-  // Filtro conservador por tag "L/XX": descarta sólo versiones cuya línea es POSTERIOR al año elegido.
   const a = parseInt(anio,10) || null;
-  if(a) versiones = versiones.filter(it=>{ const ay = coExtraerAnioVersion(it.n); return !ay || ay <= a; });
+  let versiones = [];
+
+  // 1º) Mercantil filtra el catálogo InfoAuto POR AÑO en el server: un auto 2015 no trae
+  //     líneas 2016/2008 (que hacían fallar la cotización). El código `c` es InfoAuto, sirve
+  //     para todas las compañías. Sólo lo usamos si hay año elegido.
+  if(a){
+    try{
+      const r = await fetch('/.netlify/functions/mercantil-vehiculos?marca='+encodeURIComponent(marca)+'&modelo='+encodeURIComponent(modelo)+'&anio='+encodeURIComponent(anio));
+      const j = await r.json();
+      if(j && j.ok && j.versiones && j.versiones.length) versiones = j.versiones;
+    }catch(e){ /* seguimos con el fallback */ }
+    if(reqId !== _coVerReq) return; // llegó una carga más nueva: descartamos esta
+  }
+
+  // 2º) Fallback: lista InfoAuto completa (sin año) + filtro conservador por tag "L/XX".
+  if(!versiones.length){
+    try{
+      const r = await fetch('/.netlify/functions/infoauto-list?accion=versiones&marca='+encodeURIComponent(marca)+'&modelo='+encodeURIComponent(modelo));
+      const j = await r.json();
+      versiones = j.versiones || [];
+    }catch(e){ versiones = []; }
+    if(reqId !== _coVerReq) return; // llegó una carga más nueva: descartamos esta
+    if(a) versiones = versiones.filter(it=>{ const ay = coExtraerAnioVersion(it.n); return !ay || ay <= a; });
+  }
 
   if(!versiones.length){ selVer.innerHTML='<option value="">Sin versiones para ese año</option>'; selVer.disabled=true; return; }
   selVer.innerHTML = '<option value="">Seleccioná…</option>';
