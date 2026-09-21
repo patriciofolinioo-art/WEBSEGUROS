@@ -69,11 +69,19 @@ function vigenciaDesde() {
 // MEJOR PRIMERO. El texto viene del catálogo InfoAuto ("FOCUS S 1.6 L/15", "208 FELINE 1.6"):
 // el 1er token SIEMPRE es el modelo (FOCUS, 208, CRONOS); el resto es cilindrada/terminación/ruido.
 //
-// Por qué una LISTA y no uno solo: la base de Paraná NO trae el año por modelo, y Paraná valida la
-// relación vehículo-año. Un "Gol" 2018 puede matchear primero el "GOL GL" viejo (no válido para
-// 2018 → error). Devolviendo varios candidatos, la cotización prueba el siguiente (GOL TREND) hasta
-// que Paraná acepta el año.
-function rankearVehiculos(marca, textoModelo, maxN) {
+// Por qué una LISTA y no uno solo: la base de Paraná NO trae un año explícito por modelo, y Paraná
+// valida la relación vehículo-año. Un "Gol" 2018 puede matchear primero el "GOL GL"/"TRENDLINE"
+// viejo (no válido para 2018 → error). Devolviendo varios candidatos, la cotización prueba el
+// siguiente hasta que Paraná acepta el año.
+//
+// Además usamos el AÑO para rankear: muchos nombres de Paraná traen el tag de línea "L/13", "L/17",
+// "L/19" (ej. "GOL 1.6 5 P TREND L/17" = línea 2017). Para un 2018 preferimos la línea más cercana
+// que NO sea posterior al año, así el modelo correcto queda arriba y se prueba primero.
+function lineaAnioParana(nombre) {
+  const m = (nombre || '').match(/\bL\/\s*(\d{2})\b/i);
+  return m ? 2000 + parseInt(m[1], 10) : null;
+}
+function rankearVehiculos(marca, textoModelo, anio, maxN) {
   const m = PARANA_VEHIC[(marca || '').trim().toUpperCase()];
   if (!m || !m.modelos) return [];
   const q = (textoModelo || '').toUpperCase();
@@ -84,6 +92,7 @@ function rankearVehiculos(marca, textoModelo, maxN) {
   const raw = q.split(/\s+/).filter(Boolean);
   const qTokens = raw.filter((t, i) => i === 0 ? true : !RUIDO.test(t));
   if (!qTokens.length) return [];
+  const anioNum = parseInt(anio, 10) || 0;
   const mk = (x) => ({ codMarca: m.codMarca, codModelo: x.cod, nombre: x.nombre });
   // Comparación del head sin espacios para tolerar tipeo ("ECOSPORT" ↔ "ECO SPORT", "C3" ↔ "C 3").
   const head = qTokens[0].replace(/\s+/g, '');
@@ -92,15 +101,21 @@ function rankearVehiculos(marca, textoModelo, maxN) {
     const exact = nom === q ? 1 : 0;                                  // match exacto: prioridad máxima
     const headMatch = nom.replace(/\s+/g, '').includes(head) ? 1 : 0; // el MODELO tiene que matchear
     const rest = qTokens.slice(1).reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0); // terminación desempata
-    return { x, exact, headMatch, sc: exact * 1000 + headMatch * 10 + rest };
+    // Año de línea (L/XX). Bonus si es igual/anterior al año pedido y cercano; penalización fuerte si
+    // es POSTERIOR (no puede ser). Sin tag → neutral (0), no queremos castigar a los que no lo traen.
+    const ly = lineaAnioParana(nom);
+    let yearScore = 0;
+    if (ly != null && anioNum) yearScore = (ly > anioNum) ? (-1000 - (ly - anioNum)) : (50 - (anioNum - ly));
+    const sc = exact * 100000 + headMatch * 10000 + rest * 100 + yearScore;
+    return { x, headMatch, sc };
   }).filter(o => o.headMatch === 1)   // sin modelo que matchee no hay candidato (mejor null → WhatsApp)
     .sort((a, b) => b.sc - a.sc);
   return scored.slice(0, maxN || 6).map(o => mk(o.x));
 }
 
 // Compatibilidad: devuelve el mejor candidato (o null).
-function buscarVehiculo(marca, textoModelo) {
-  const r = rankearVehiculos(marca, textoModelo, 1);
+function buscarVehiculo(marca, textoModelo, anio) {
+  const r = rankearVehiculos(marca, textoModelo, anio, 1);
   return r.length ? r[0] : null;
 }
 
@@ -285,7 +300,7 @@ exports.handler = async function (event) {
     } };
     try {
       const marca = q.marca || 'Chevrolet', modelo = q.modelo || 'Corsa', anio = q.anio || '2015';
-      const candidatos = rankearVehiculos(marca, modelo, 5);
+      const candidatos = rankearVehiculos(marca, modelo, anio, 5);
       dbg.candidatos = candidatos;   // todos los que se van a probar, mejor primero
       if (!candidatos.length) { dbg.nota = 'vehículo no encontrado en parana_vehiculos.js'; return { statusCode: 200, headers, body: JSON.stringify(dbg) }; }
       const cr = await cotizarConReintento({ marca, modelo, anio, cp: q.cp || '1636' }, candidatos);
@@ -310,7 +325,7 @@ exports.handler = async function (event) {
     if (!SISTEMA_ORIGEN || !PRODUCTOR) {
       return { statusCode: 200, headers, body: JSON.stringify({ error: 'Paraná no configurado (PARANA_SISTEMA_ORIGEN / PARANA_PRODUCTOR).', opciones: [] }) };
     }
-    const candidatos = rankearVehiculos(dat.marca, dat.modelo, 5);
+    const candidatos = rankearVehiculos(dat.marca, dat.modelo, dat.anio, 5);
     if (!candidatos.length) return { statusCode: 200, headers, body: JSON.stringify({ error: 'No se encontró el vehículo en la base de Paraná', opciones: [] }) };
 
     const cr = await cotizarConReintento(dat, candidatos);
