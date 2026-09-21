@@ -96,17 +96,26 @@ async function buscarCodigoModelo(token, marcaCod, nombreModelo, anio, producto)
   // 1) Match exacto por inclusión (nombres limpios tipo SISEG).
   let encontrado = arr.find(m => (m.descripcion || m.descripción || '').toUpperCase().includes(nombreUp));
   // 2) La descripción de InfoAuto es verbosa ("CRUZE 1.4 4 PTAS LT AT L/25"). Puntuamos por tokens
-  //    relevantes (ignorando ruido: PTAS, AT, MT, L/XX, nº de puertas) y elegimos la MEJOR variante.
+  //    y elegimos la MEJOR variante. El 1er token SIEMPRE es el modelo (CRUZE, 208, X 55) y pesa ×10:
+  //    para BAIC/Peugeot/Fiat/BMW el modelo es un número (55, 208, 320) que NO hay que descartar,
+  //    si no un "X 55" matcheaba un "X 25" → suma asegurada de otro auto (variaba muchísimo).
   if (!encontrado) {
     const RUIDO = /^(\d+|PTAS?|PUERTAS?|AT|MT|CVT|L\/?\d+|\d+P)$/;
-    const qTokens = nombreUp.split(/\s+/).filter(t => t && !RUIDO.test(t));
-    let best = null, bestScore = 0;
+    const raw = nombreUp.split(/\s+/).filter(Boolean);
+    const qTokens = raw.filter((t, i) => i === 0 ? true : !RUIDO.test(t));
+    // Para modelos "X 55" el head "X" es poco distintivo: sumamos el 2º token al head si es corto/numérico.
+    let head = qTokens[0] || '';
+    if (head.length <= 2 && qTokens[1]) head = head + qTokens[1];
+    const headJoin = head.replace(/\s+/g, '');
+    let best = null, bestScore = -1;
     arr.forEach(m => {
       const d = (m.descripcion || m.descripción || '').toUpperCase();
-      const sc = qTokens.reduce((s, t) => s + (d.includes(t) ? 1 : 0), 0);
+      const headMatch = d.replace(/\s+/g, '').includes(headJoin) ? 1 : 0;
+      const rest = qTokens.slice(1).reduce((s, t) => s + (d.includes(t) ? 1 : 0), 0);
+      const sc = headMatch * 10 + rest;
       if (sc > bestScore) { bestScore = sc; best = m; }
     });
-    encontrado = best; // best solo si algún token coincidió (bestScore>0)
+    encontrado = best;
   }
   return encontrado ? (encontrado.código || encontrado.codigo) : '000000';
 }
