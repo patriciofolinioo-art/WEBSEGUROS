@@ -85,14 +85,34 @@ async function buscarCodigoMarca(token, nombreMarca, producto) {
   return encontrado ? (encontrado.código || encontrado.codigo) : 'AAA';
 }
 
-async function buscarCodigoModelo(token, marcaCod, nombreModelo, anio, producto) {
+// Saca la MARCA del principio del texto del modelo. Según de dónde venga el catálogo, la versión
+// puede llegar como "KICKS 1.6 ADVANCE" (InfoAuto) o "NISSAN KICKS 1.6 ADVANCE" (Mercantil).
+// Si no la sacamos, el 1er token sería la marca y el match del modelo falla.
+function quitarMarca(texto, marca) {
+  let t = (texto || '').trim();
+  const ma = (marca || '').trim().toUpperCase();
+  if (!t || !ma) return t;
+  const tUp = t.toUpperCase();
+  if (tUp.startsWith(ma + ' ')) {                       // marca completa ("ALFA ROMEO", "MERCEDES BENZ")
+    const resto = t.slice(ma.length).trim();
+    if (resto) return resto;
+  }
+  const ma1 = ma.split(/\s+/)[0];                       // o sólo la 1ª palabra
+  if (ma1 && tUp.startsWith(ma1 + ' ')) {
+    const resto = t.slice(ma1.length).trim();
+    if (resto) return resto;
+  }
+  return t;
+}
+
+async function buscarCodigoModelo(token, marcaCod, nombreModelo, anio, producto, marcaNombre) {
   const url = `${BASE}/modelo/4/${producto}/${marcaCod}/${anio}/N?apikey=${API_KEY}`;
   const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token, 'apikey': API_KEY } });
   if (!resp.ok) return '000000';
   let lista;
   try { lista = JSON.parse(await resp.text()); } catch(e) { return '000000'; }
   const arr = Array.isArray(lista) ? lista : (lista.valores || []);
-  const nombreUp = (nombreModelo || '').toUpperCase();
+  const nombreUp = quitarMarca(nombreModelo, marcaNombre).toUpperCase();
   // 1) Match exacto por inclusión (nombres limpios tipo SISEG).
   let encontrado = arr.find(m => (m.descripcion || m.descripción || '').toUpperCase().includes(nombreUp));
   // 2) La descripción de InfoAuto es verbosa ("CRUZE 1.4 4 PTAS LT AT L/25"). Puntuamos por tokens
@@ -187,7 +207,7 @@ exports.handler = async function(event) {
       dbg.tokenOk = !!tokenD;
       const marcaCodD = await buscarCodigoMarca(tokenD, marca, '04100');
       dbg.marcaCod = marcaCodD;              // 'AAA' = no encontró la marca
-      const modeloCodD = await buscarCodigoModelo(tokenD, marcaCodD, modelo, anio, '04100');
+      const modeloCodD = await buscarCodigoModelo(tokenD, marcaCodD, modelo, anio, '04100', marca);
       dbg.modeloCod = modeloCodD;            // '000000' = no encontró el modelo
       const payload = construirPayload({ marca, modelo, anio, cp: q.cp || '1642', uso: 'particular' }, marcaCodD, modeloCodD);
       const r = await fetch(COTIZAR_URL + '?apikey=' + API_KEY, {
@@ -242,7 +262,7 @@ exports.handler = async function(event) {
     if (datos.modeloProvCod && /^[A-Z0-9]+$/i.test(datos.modeloProvCod)) {
       modeloCod = datos.modeloProvCod;
     } else {
-      modeloCod = await buscarCodigoModelo(token, marcaCod, datos.modelo, datos.anio, '04100');
+      modeloCod = await buscarCodigoModelo(token, marcaCod, datos.modelo, datos.anio, '04100', datos.marca);
     }
     const payload   = construirPayload(datos, marcaCod, modeloCod);
 

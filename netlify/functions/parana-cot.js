@@ -81,10 +81,34 @@ function lineaAnioParana(nombre) {
   const m = (nombre || '').match(/\bL\/\s*(\d{2})\b/i);
   return m ? 2000 + parseInt(m[1], 10) : null;
 }
+
+// Saca la MARCA del principio del texto del modelo. Según de dónde venga el catálogo, la versión
+// puede llegar como "KICKS 1.6 ADVANCE" (InfoAuto) o "NISSAN KICKS 1.6 ADVANCE" (Mercantil).
+// Si no la sacamos, el 1er token sería la marca ("NISSAN") y ningún modelo de Paraná la contiene
+// → no encontraba el vehículo y no cotizaba nada.
+function quitarMarca(texto, marca) {
+  let t = (texto || '').trim();
+  const ma = (marca || '').trim().toUpperCase();
+  if (!t || !ma) return t;
+  const tUp = t.toUpperCase();
+  // Marca completa al inicio (soporta marcas de varias palabras: "ALFA ROMEO", "MERCEDES BENZ").
+  if (tUp.startsWith(ma + ' ')) {
+    const resto = t.slice(ma.length).trim();
+    if (resto) return resto;
+  }
+  // O sólo la 1ª palabra de la marca (ej. texto "VOLKSWAGEN GOL…" con marca "VOLKSWAGEN").
+  const ma1 = ma.split(/\s+/)[0];
+  if (ma1 && tUp.startsWith(ma1 + ' ')) {
+    const resto = t.slice(ma1.length).trim();
+    if (resto) return resto;
+  }
+  return t;
+}
 function rankearVehiculos(marca, textoModelo, anio, maxN) {
   const m = PARANA_VEHIC[(marca || '').trim().toUpperCase()];
   if (!m || !m.modelos) return [];
-  const q = (textoModelo || '').toUpperCase();
+  // Sacamos la marca del inicio si vino pegada (depende del catálogo que alimente el desplegable).
+  const q = quitarMarca(textoModelo, marca).toUpperCase();
   // Ruido de la descripción InfoAuto (PTAS, AT, MT, L/XX, nº de puertas). OJO: NO filtramos el
   // 1er token aunque sea numérico — para Peugeot/Fiat/BMW/Alfa el modelo ES un número (208, 147,
   // 320, 155) y descartarlo hacía que un 208 matcheara un 207 (auto equivocado → no cotizaba).
