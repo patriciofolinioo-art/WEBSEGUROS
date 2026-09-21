@@ -66,22 +66,35 @@ function vigenciaDesde() {
 }
 
 // Resuelve marca + texto de modelo → códigos de Paraná (codMarca / cod del modelo).
+// El texto viene del catálogo InfoAuto ("FOCUS S 1.6 L/15", "208 FELINE 1.6 L/16"): el 1er
+// token SIEMPRE es el modelo (FOCUS, 208, CRONOS). El resto son cilindrada/terminación/ruido.
 function buscarVehiculo(marca, textoModelo) {
   const m = PARANA_VEHIC[(marca || '').trim().toUpperCase()];
   if (!m || !m.modelos) return null;
   const q = (textoModelo || '').toUpperCase();
-  // Ignoramos tokens de ruido de la descripción InfoAuto (PTAS, AT, MT, L/XX, nº de puertas).
+  // Ruido de la descripción InfoAuto (PTAS, AT, MT, L/XX, nº de puertas). OJO: NO filtramos el
+  // 1er token aunque sea numérico — para Peugeot/Fiat/BMW/Alfa el modelo ES un número (208, 147,
+  // 320, 155) y descartarlo hacía que un 208 matcheara un 207 (auto equivocado → no cotizaba).
   const RUIDO = /^(\d+|PTAS?|PUERTAS?|AT|MT|CVT|L\/?\d+|\d+P)$/;
-  const qTokens = q.split(/\s+/).filter(t => t && !RUIDO.test(t));
+  const raw = q.split(/\s+/).filter(Boolean);
+  const qTokens = raw.filter((t, i) => i === 0 ? true : !RUIDO.test(t));
+  if (!qTokens.length) return null;
   let mod = m.modelos.find(x => (x.nombre || '').toUpperCase() === q);
   if (!mod) {
-    let best = null, bs = 0;
+    // El modelo (head) manda ×10; la terminación desempata. Comparación del head sin espacios
+    // para tolerar variantes de tipeo ("ECOSPORT" ↔ "ECO SPORT", "C3" ↔ "C 3").
+    const head = qTokens[0].replace(/\s+/g, '');
+    let best = null, bs = -1;
     m.modelos.forEach(x => {
       const nom = (x.nombre || '').toUpperCase();
-      const sc = qTokens.reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0);
+      const headMatch = nom.replace(/\s+/g, '').includes(head) ? 1 : 0;
+      const rest = qTokens.slice(1).reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0);
+      const sc = headMatch * 10 + rest;
       if (sc > bs) { bs = sc; best = x; }
     });
-    mod = best; // best solo si bs>0 (al menos un token relevante coincidió)
+    // Exigimos que el MODELO matchee (bs>=10). Si no está en la base de Paraná, devolvemos null
+    // (mejor "no hay precio online, consultanos" que cotizar otro auto distinto).
+    mod = (best && bs >= 10) ? best : null;
   }
   if (!mod) return null;
   return { codMarca: m.codMarca, codModelo: mod.cod, nombre: mod.nombre };
