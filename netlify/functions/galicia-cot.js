@@ -58,6 +58,18 @@ const COMISION = 20;             // % de comisión del productor (nodo ProductoC
 const ID_PROVINCIA_DEFAULT = 1;
 const ID_LOCALIDAD_DEFAULT = 1;
 
+// Tabla de localidades de Galicia (generada de WS_TablasConversion, hoja "Localidad").
+// { "<CodigoPostal>": [Cod_Provincia, Cod_Localidad] }. Galicia valida que el CP corresponda a la
+// provincia/localidad; con el default fijo (1/1 = Capital) rechazaba cualquier CP que no fuera 1001.
+let GAL_LOC = {};
+try { GAL_LOC = require('./galicia_localidades.json'); } catch (e) { GAL_LOC = {}; }
+// Devuelve { prov, loc } para un CP. Si no está, cae al default (Capital) para no romper.
+function resolverZona(cp) {
+  const par = GAL_LOC[String(cp).replace(/\D/g, '')];
+  if (Array.isArray(par) && par.length === 2) return { prov: par[0], loc: par[1] };
+  return { prov: ID_PROVINCIA_DEFAULT, loc: ID_LOCALIDAD_DEFAULT };
+}
+
 let _cache = { token: null, exp: 0, tipo: 'bearer' };
 
 // Header Authorization tal cual lo pide Galicia: usa el token_type devuelto (normalmente "bearer").
@@ -120,6 +132,7 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
   idCobertura = idCobertura || ID_COBERTURA_TODAS;
   const { desde, hasta } = fechasVigencia();
   const cp = String(dat.cp || '1001');
+  const zona = resolverZona(cp);   // { prov, loc } reales del CP (evita el rechazo de "CodigoPostal posible")
   // Teléfono: el motor exige Número > 0 (no acepta ceros). Tomamos el del cliente o un default válido.
   const areaNum = parseInt(String(dat.area || '11').replace(/\D/g, ''), 10) || 11;
   const telNum = parseInt(String(dat.tel || '').replace(/\D/g, ''), 10) || 1122334455;
@@ -152,7 +165,7 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
       Sexo: dat.genero === 'F' ? 'F' : 'M',
       Email: dat.email || 'cliente@web.com',
       IdEstadoCivil: ID_ESTADO_CIVIL,
-      Domicilios: [{ IdProvincia: ID_PROVINCIA_DEFAULT, CodigoPostal: cp, IdLocalidad: ID_LOCALIDAD_DEFAULT, DescripcionLocalidad: '', Calle: 'S/D', Numero: '0', IdTipoDomicilio: 1 }],
+      Domicilios: [{ IdProvincia: zona.prov, CodigoPostal: cp, IdLocalidad: zona.loc, DescripcionLocalidad: '', Calle: 'S/D', Numero: '0', IdTipoDomicilio: 1 }],
       Telefonos: [{ IdTipoTelefono: 1, CodigoDeArea: areaNum, Celular: true, Numero: telNum }],
       Documentos: [{ IdTipoDocumento: ID_TIPO_DOCUMENTO, Documento: (dat.dni || '10000000').replace(/\D/g, '') }],
       IdCondicionFiscal: ID_CONDICION_FISCAL
@@ -169,7 +182,7 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
       IdKmRecorridosPorAnio: ID_KM_ANIO,
       IdCochera: ID_COCHERA,
       SumaAsegurada: 0, // 0 = valor SURA por InfoAuto/año
-      ZonaDeRiesgo: { CodigoPostal: parseInt(cp, 10) || 1001, IdProvincia: ID_PROVINCIA_DEFAULT, IdLocalidad: ID_LOCALIDAD_DEFAULT },
+      ZonaDeRiesgo: { CodigoPostal: parseInt(cp, 10) || 1001, IdProvincia: zona.prov, IdLocalidad: zona.loc },
       ProductoTecnico: { IdAsistenciaMecanica: ID_ASISTENCIA, IdRc: ID_RC, IdClausulaAjuste: ID_CLAUSULA_AJUSTE, IdCobertura: idCobertura, Accesorios: [] }
     }
   };
