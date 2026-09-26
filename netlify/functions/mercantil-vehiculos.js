@@ -18,6 +18,27 @@ const VEH_BASE  = HOST + '/vehiculos/v1';
 const LOGIN_URL = process.env.MERCANTIL_LOGIN_URL || (HOST + '/credenciales/v2');
 const CLIENT_ID = process.env.MERCANTIL_CLIENT_ID || 'api-clientes-login';
 
+// Índice de InfoAuto por código numérico. Mercantil se usa SOLO para saber qué versiones existen
+// para el año pedido; los DATOS (nombre, código, tipo) los tomamos de infoauto.json, que es el
+// estándar que usan todas las compañías. Así el desplegable devuelve nombres LIMPIOS (sin la marca
+// adelante, que rompía el match de Paraná/Provincia) y el código en el formato correcto ("0300261").
+const INFOAUTO = require('./infoauto.json');
+const _infoIdx = new Map(); // código numérico → { n, c, t }
+for (const mk of Object.keys(INFOAUTO)) {
+  const arr = Array.isArray(INFOAUTO[mk]) ? INFOAUTO[mk] : (INFOAUTO[mk].modelos || []);
+  for (const it of arr) {
+    const num = parseInt(it.c, 10);
+    if (!Number.isNaN(num) && !_infoIdx.has(num)) _infoIdx.set(num, { n: it.n, c: it.c, t: it.t });
+  }
+}
+// Saca la marca del inicio del nombre de Mercantil (fallback cuando el código no está en InfoAuto).
+function _sinMarca(nombre, marca) {
+  let t = (nombre || '').trim();
+  const ma = (marca || '').trim().toUpperCase();
+  if (t && ma && t.toUpperCase().startsWith(ma + ' ')) { const r = t.slice(ma.length).trim(); if (r) return r; }
+  return t;
+}
+
 // Cache del token en memoria (vida del contenedor lambda). Comparte la misma cuenta que
 // mercantil-cot.js pero cada función corre en su propio contexto, así que cachea aparte.
 let _cache = { token: null, exp: 0 };
@@ -120,18 +141,25 @@ exports.handler = async function (event) {
       return ly <= anioNum;
     });
 
-    // Dedup por código InfoAuto y armado del resultado {n, c}. Ordenamos por nombre.
+    // Dedup por código y armado del resultado. Para cada código de Mercantil buscamos la entrada
+    // canónica en InfoAuto (nombre limpio, código "0300261", tipo). Si no está, usamos el nombre de
+    // Mercantil sin la marca y el código tal cual (fallback).
     const vistos = new Set();
     const versiones = [];
     filtradas.forEach(d => {
       const cod = d.infoauto != null ? d.infoauto : d.codigo;
       if (cod == null) return;
-      const key = String(cod);
+      const num = parseInt(cod, 10);
+      const info = _infoIdx.get(num);
+      const item = info
+        ? { n: info.n, c: info.c, t: info.t }
+        : { n: _sinMarca(d.nombre, marca), c: String(cod) };
+      const key = String(item.c);
       if (vistos.has(key)) return;
       vistos.add(key);
-      versiones.push({ n: d.nombre || '', c: cod });
+      versiones.push(item);
     });
-    versiones.sort((a, b) => a.n.localeCompare(b.n, 'es'));
+    versiones.sort((a, b) => (a.n || '').localeCompare(b.n || '', 'es'));
 
     const out = { ok: true, versiones };
     if (debug) { out.q = texto; out.total = datos.length; out.tras_filtro = filtradas.length; }
