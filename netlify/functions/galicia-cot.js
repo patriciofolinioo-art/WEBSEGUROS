@@ -14,7 +14,8 @@
 //      GALICIA_PASS        = clave provista por GS
 //      GALICIA_INSTITUCION = IdInstitucion (nro de institución, ej. 999)
 //      GALICIA_PRODUCTOR   = IdProductor (código del productor en Galicia, ej. 2050)
-//      GALICIA_PRODUCTO    = CodigoProducto asociado al productor (ej. 774)
+//      GALICIA_PRODUCTO    = CodigoProducto asociado al productor (para este productor: 1059)
+//      GALICIA_COMISION    = (opcional) % de comisión. Default 22 (lo indicó Galicia). Bajarla abarata.
 //      GALICIA_BASE        = (opcional) URL base. Default: PRE (testing).
 //
 //  ⚠️ Esta integración necesita testeo en vivo (debug ?debug=1) — el $type de .NET y la zona
@@ -52,7 +53,10 @@ const ID_TIPO_DOCUMENTO = 96;    // DNI
 const ID_ESTADO_CIVIL = Number(process.env.GALICIA_ID_ESTADO_CIVIL) || 1;   // 1=Soltero (tabla EstadoCivil)
 const ID_FORMA_PAGO = Number(process.env.GALICIA_ID_FORMA_PAGO);            // 0=Débito banco,1=Débito tarjeta,3=Pago Fácil,5=Convenio
 const CANT_CUOTAS = Number(process.env.GALICIA_CANT_CUOTAS) || 1;
-const COMISION = 20;             // % de comisión del productor (nodo ProductoComercial)
+// % de comisión del productor (nodo ProductoComercial). Galicia indicó 22 (ajustable). Bajarla
+// abarata el premio para el cliente (ídem Provincia/Mercantil). Ajustable con GALICIA_COMISION.
+const _comGal = parseInt(process.env.GALICIA_COMISION, 10);
+const COMISION = Number.isFinite(_comGal) && _comGal >= 0 ? _comGal : 22;
 // ⚠️ Zona de riesgo: la tabla Localidad tiene 20k filas. Por ahora usamos un default (Buenos Aires).
 //    Afecta el precio por zona; cuando esté OK, resolver IdProvincia/IdLocalidad reales desde el CP.
 const ID_PROVINCIA_DEFAULT = 1;
