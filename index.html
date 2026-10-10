@@ -1984,77 +1984,118 @@ async function coSolicitar(i, via){
   if(_b) _b.style.display='none';
 }
 
-// Formulario al sistema (para quien no quiere usar WhatsApp): deja teléfono y/o email
+// Opción B: formulario de EMISIÓN completo (todos los datos; solo queda la inspección)
 function coFormLead(i){
   const op = _coOpc[i]; if(!op || !_coDat) return;
   const col = op.color || '#8e44ad';
   const planTxt = op.plan ? ('Plan '+op.plan+' · ') : '';
   const precio = '$'+Number(op.premio).toLocaleString('es-AR');
-  const val = (x)=> (x ? String(x).replace(/"/g,'&quot;') : '');
-  const inpCss = 'width:100%;padding:12px 14px;border:1.5px solid #d0d7df;border-radius:10px;font-size:15px;font-family:inherit;outline:none;color:#13212f;background:#fff;';
-  const lblCss = 'display:block;font-size:12px;font-weight:800;color:#13212f;margin-bottom:5px;';
+  const v = (x)=> (x ? String(x).replace(/"/g,'&quot;') : '');
+  const inp = 'width:100%;padding:11px 13px;border:1.5px solid #d0d7df;border-radius:10px;font-size:15px;font-family:inherit;outline:none;color:#13212f;background:#fff;box-sizing:border-box;';
+  const lbl = 'display:block;font-size:12px;font-weight:700;color:#13212f;margin-bottom:5px;';
+  const sec = 'font-size:11.5px;font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.5px;margin:18px 0 10px;';
+  const row = 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;';
+  const half = 'flex:1;min-width:130px;';
   const cont = document.getElementById('co_listaPlanes');
   cont.innerHTML =
-    '<div style="max-width:440px;margin:0 auto;padding:2px;">'
+    '<div style="max-width:470px;margin:0 auto;padding:2px;text-align:left;">'
     + '<div style="font-size:12px;font-weight:800;color:#8a97a4;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;text-align:center;">Solicitud de emisión</div>'
-    + '<div style="border:1px solid '+col+';background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#13212f;"><strong style="color:'+col+';">'+(op.ciaNombre||'')+'</strong> · '+planTxt+(op.cobertura||'')+' · <strong>'+precio+'/mes</strong></div>'
-    + '<div style="font-size:13.5px;color:#5a6b7d;text-align:center;margin-bottom:16px;line-height:1.5;">Dejanos tus datos y un productor te contacta. No hace falta WhatsApp.</div>'
-    + '<div style="margin-bottom:12px;"><label style="'+lblCss+'">Nombre y apellido</label><input id="coLeadNombre" value="'+val(_coDat.nombre)+'" placeholder="Tu nombre" style="'+inpCss+'"></div>'
-    + '<div style="margin-bottom:12px;"><label style="'+lblCss+'">Teléfono <span style="font-weight:500;color:#8a97a4;">(opcional)</span></label><input id="coLeadTel" value="'+val(_coDat.tel)+'" inputmode="tel" placeholder="Ej: 11 5555 5555" style="'+inpCss+'"></div>'
-    + '<div style="margin-bottom:4px;"><label style="'+lblCss+'">Email <span style="font-weight:500;color:#8a97a4;">(opcional)</span></label><input id="coLeadEmail" value="'+val(_coDat.email)+'" inputmode="email" placeholder="tucorreo@email.com" style="'+inpCss+'"></div>'
-    + '<div style="font-size:11.5px;color:#8a97a4;margin-top:12px;display:flex;align-items:center;gap:7px;line-height:1.4;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Tus datos solo los usa tu productor para contactarte. No los compartimos.</div>'
-    + '<div id="coLeadErr" style="display:none;font-size:12px;color:#b23b3b;margin-top:8px;">Dejanos al menos un teléfono o un email para poder contactarte.</div>'
-    + '<button onclick="coEnviarLead('+i+')" style="width:100%;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:16px;">Enviar solicitud</button>'
+    + '<div style="border:1px solid '+col+';background:#fff;border-radius:12px;padding:11px 14px;margin-bottom:8px;font-size:13px;color:#13212f;"><strong style="color:'+col+';">'+(op.ciaNombre||'')+'</strong> · '+planTxt+(op.cobertura||'')+' · <strong>'+precio+'/mes</strong></div>'
+    + '<div style="font-size:13px;color:#5a6b7d;text-align:center;margin-bottom:4px;line-height:1.5;">Completá tus datos para emitir. Solo faltará la <strong>inspección</strong>, que coordinamos por WhatsApp.</div>'
+    + '<div style="'+sec+'">Datos del titular</div>'
+    + '<div style="margin-bottom:10px;"><label style="'+lbl+'">Nombre y apellido *</label><input id="coLNombre" value="'+v(_coDat.nombre)+'" placeholder="Como figura en el DNI" style="'+inp+'"></div>'
+    + '<div style="'+row+'"><div style="'+half+'"><label style="'+lbl+'">DNI *</label><input id="coLDni" value="'+v(_coDat.dni)+'" inputmode="numeric" placeholder="Sin puntos" style="'+inp+'"></div><div style="'+half+'"><label style="'+lbl+'">Fecha de nacimiento *</label><input id="coLNac" type="date" value="'+v(_coDat.nac)+'" style="'+inp+'"></div></div>'
+    + '<div style="'+row+'"><div style="'+half+'"><label style="'+lbl+'">Sexo</label><select id="coLSexo" style="'+inp+'"><option value="M">Masculino</option><option value="F">Femenino</option></select></div><div style="'+half+'"><label style="'+lbl+'">Estado civil</label><select id="coLEc" style="'+inp+'"><option value="">—</option><option>Soltero/a</option><option>Casado/a</option><option>Divorciado/a</option><option>Viudo/a</option></select></div></div>'
+    + '<div style="'+row+'"><div style="'+half+'"><label style="'+lbl+'">Email *</label><input id="coLEmail" value="'+v(_coDat.email)+'" inputmode="email" placeholder="tucorreo@email.com" style="'+inp+'"></div><div style="'+half+'"><label style="'+lbl+'">Celular *</label><input id="coLTel" value="'+v(_coDat.tel)+'" inputmode="tel" placeholder="11 5555 5555" style="'+inp+'"></div></div>'
+    + '<div style="'+sec+'">Domicilio</div>'
+    + '<div style="'+row+'"><div style="flex:2;min-width:160px;"><label style="'+lbl+'">Calle y número *</label><input id="coLCalle" placeholder="Av. del Libertador 1234" style="'+inp+'"></div><div style="flex:1;min-width:90px;"><label style="'+lbl+'">Piso/Depto</label><input id="coLPiso" placeholder="Opc." style="'+inp+'"></div></div>'
+    + '<div style="'+row+'"><div style="'+half+'"><label style="'+lbl+'">Localidad *</label><input id="coLLoc" placeholder="San Isidro" style="'+inp+'"></div><div style="flex:1;min-width:90px;"><label style="'+lbl+'">CP *</label><input id="coLCp" value="'+v(_coDat.cp)+'" inputmode="numeric" style="'+inp+'"></div></div>'
+    + '<div style="margin-bottom:10px;"><label style="'+lbl+'">Provincia *</label><input id="coLProv" value="Buenos Aires" style="'+inp+'"></div>'
+    + '<div style="'+sec+'">Vehículo — '+_coDat.marca+' '+_coDat.modelo+' '+_coDat.anio+'</div>'
+    + '<div style="'+row+'"><div style="'+half+'"><label style="'+lbl+'">Patente / Dominio</label><input id="coLPat" placeholder="AB123CD (vacío si es 0km)" style="'+inp+'"></div><div style="'+half+'"><label style="'+lbl+'">¿Es 0 km?</label><select id="coLOkm" style="'+inp+'"><option value="no">No, usado</option><option value="si">Sí, 0 km</option></select></div></div>'
+    + '<div style="'+row+'"><div style="'+half+'"><label style="'+lbl+'">N° de motor <span style="font-weight:500;color:#8a97a4;">(opc.)</span></label><input id="coLMotor" style="'+inp+'"></div><div style="'+half+'"><label style="'+lbl+'">N° de chasis <span style="font-weight:500;color:#8a97a4;">(opc.)</span></label><input id="coLChasis" style="'+inp+'"></div></div>'
+    + '<div style="'+sec+'">Forma de pago</div>'
+    + '<div><select id="coLPago" style="'+inp+'"><option value="Débito automático (CBU)">Débito automático (CBU)</option><option value="Tarjeta de crédito">Tarjeta de crédito</option><option value="A convenir">A convenir con el productor</option></select></div>'
+    + '<div style="font-size:11.5px;color:#8a97a4;margin-top:10px;display:flex;align-items:flex-start;gap:7px;line-height:1.45;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Por tu seguridad, el CBU o la tarjeta te los pide tu productor al coordinar. No los cargues acá.</div>'
+    + '<div id="coLErr" style="display:none;font-size:12.5px;color:#b23b3b;margin-top:10px;font-weight:600;"></div>'
+    + '<button onclick="coEnviarLead('+i+')" style="width:100%;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:14px;">Enviar solicitud de emisión</button>'
     + '<button onclick="coElegir('+i+')" style="display:block;margin:12px auto 2px;background:none;border:none;color:#8a97a4;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">‹ Volver</button>'
     + '</div>';
+  var _sx=document.getElementById('coLSexo'); if(_sx && _coDat.genero) _sx.value=(_coDat.genero==='F'?'F':'M');
   document.querySelector('#coResultados>button').style.display='none';
 }
 
+// Formulario de EMISIÓN completo → guarda el lead y manda todos los datos al productor por WhatsApp
 async function coEnviarLead(i){
   const op = _coOpc[i]; if(!op || !_coDat) return;
-  const nombre = (document.getElementById('coLeadNombre').value||'').trim();
-  const tel = (document.getElementById('coLeadTel').value||'').trim();
-  const email = (document.getElementById('coLeadEmail').value||'').trim();
-  if(!tel && !email){ document.getElementById('coLeadErr').style.display='block'; return; }
-  _coDat.nombre = nombre || _coDat.nombre; _coDat.tel = tel; _coDat.email = email;
+  const g = (id)=> { const e=document.getElementById(id); return e ? e.value.trim() : ''; };
+  const d = { nombre:g('coLNombre'), dni:g('coLDni'), nac:g('coLNac'), sexo:g('coLSexo'), ec:g('coLEc'),
+    email:g('coLEmail'), tel:g('coLTel'), calle:g('coLCalle'), piso:g('coLPiso'), loc:g('coLLoc'),
+    cp:g('coLCp'), prov:g('coLProv'), pat:g('coLPat'), okm:g('coLOkm'), motor:g('coLMotor'),
+    chasis:g('coLChasis'), pago:g('coLPago') };
+  const falta = [];
+  if(!d.nombre) falta.push('nombre'); if(!d.dni) falta.push('DNI'); if(!d.nac) falta.push('fecha de nacimiento');
+  if(!d.email) falta.push('email'); if(!d.tel) falta.push('celular'); if(!d.calle) falta.push('domicilio');
+  if(!d.loc) falta.push('localidad'); if(!d.cp) falta.push('CP');
+  const err = document.getElementById('coLErr');
+  if(falta.length){ err.textContent = 'Nos falta: '+falta.join(', ')+'.'; err.style.display='block'; return; }
+  _coDat.nombre=d.nombre; _coDat.tel=d.tel; _coDat.email=d.email; _coDat.dni=d.dni; _coDat.nac=d.nac; _coDat.genero=d.sexo; _coDat.cp=d.cp;
+  const planTxt = op.plan ? ('Plan '+op.plan+' - ') : '';
+  const precio = '$'+Number(op.premio).toLocaleString('es-AR');
+  // 1) Guardar la solicitud COMPLETA en el sistema (queda para el productor)
   try{
     if(typeof _db !== 'undefined' && _db){
       const prod = (typeof _productores !== 'undefined' && _productores[0]) ? _productores[0] : { email:'pfolini.si@gmail.com', name:'San Isidro Seguros' };
       await _db.collection('cotizaciones_web').add({
-        ts: new Date().toISOString(),
-        estado: 'pendiente',
-        origen: 'cotizador_online',
-        contactoPreferencia: 'formulario',
-        productorEmail: prod.email,
-        productorName: prod.name,
-        cliente: { nombre:nombre, tel:tel, email:email, cp:_coDat.cp, via:(tel?'telefono':'email'), nacimiento:_coDat.nac||'', genero:_coDat.genero||'' },
-        vehiculo: { marca:_coDat.marca, modelo:_coDat.modelo, anio:parseInt(_coDat.anio)||0, uso:_coDat.uso, gnc:_coDat.gnc==='si', gnc_monto:_coDat.gnc_monto||0 },
-        planElegido: { plan:op.plan||'', cobertura:op.cobertura||'', premio:op.premio||0, suma:op.suma||0 },
+        ts: new Date().toISOString(), estado:'para_emitir', origen:'cotizador_online', contactoPreferencia:'formulario_emision',
+        productorEmail: prod.email, productorName: prod.name,
+        cliente:{ nombre:d.nombre, dni:d.dni, nacimiento:d.nac, sexo:d.sexo, estadoCivil:d.ec, email:d.email, tel:d.tel,
+          domicilio:{ calle:d.calle, piso:d.piso, localidad:d.loc, cp:d.cp, provincia:d.prov } },
+        vehiculo:{ marca:_coDat.marca, modelo:_coDat.modelo, anio:parseInt(_coDat.anio)||0, patente:d.pat, okm:d.okm==='si',
+          motor:d.motor, chasis:d.chasis, uso:_coDat.uso, gnc:_coDat.gnc==='si', gnc_monto:_coDat.gnc_monto||0 },
+        pago:{ forma:d.pago },
+        planElegido:{ plan:op.plan||'', cobertura:op.cobertura||'', premio:op.premio||0, suma:op.suma||0 },
         compania: op.ciaNombre || 'Provincia Seguros'
       });
     }
-  }catch(e){ /* si falla, igual mostramos confirmación */ }
-  const planTxt = op.plan ? ('Plan '+op.plan+' - ') : '';
-  const precio = '$'+Number(op.premio).toLocaleString('es-AR');
-  const dondeTxt = tel ? (' al <strong>'+tel+'</strong>') : (email ? (' a <strong>'+email+'</strong>') : '');
+  }catch(e){ /* si falla el guardado, igual mandamos el WhatsApp */ }
+  // 2) Mandar el FORMULARIO COMPLETO al productor por WhatsApp
+  const L = [];
+  L.push('📋 *SOLICITUD DE EMISIÓN* — '+(op.ciaNombre||'Provincia Seguros'));
+  L.push('🛡 '+planTxt+(op.cobertura||''));
+  L.push('💰 '+precio+'/mes'+(op.suma>0 ? ('  ·  Suma: $'+Number(op.suma).toLocaleString('es-AR')) : ''));
+  L.push('');
+  L.push('👤 *Titular*');
+  L.push('• '+d.nombre+'  (DNI '+d.dni+')');
+  L.push('• Nac: '+d.nac+(d.sexo ? ('  ·  '+(d.sexo==='F'?'Fem':'Masc')) : '')+(d.ec ? ('  ·  '+d.ec) : ''));
+  L.push('• 📧 '+d.email+'  ·  📱 '+d.tel);
+  L.push('');
+  L.push('🏠 *Domicilio*');
+  L.push('• '+d.calle+(d.piso ? (' '+d.piso) : ''));
+  L.push('• '+d.loc+', '+d.prov+'  (CP '+d.cp+')');
+  L.push('');
+  L.push('🚗 *Vehículo*');
+  L.push('• '+_coDat.marca+' '+_coDat.modelo+' '+_coDat.anio+(_coDat.gnc==='si' ? '  (con GNC)' : ''));
+  L.push('• Patente: '+(d.pat || '(0km s/patente)')+'  ·  0km: '+(d.okm==='si' ? 'Sí' : 'No'));
+  if(d.motor || d.chasis) L.push('• Motor: '+(d.motor||'-')+'  ·  Chasis: '+(d.chasis||'-'));
+  L.push('');
+  L.push('💳 Pago: '+d.pago);
+  L.push('');
+  L.push('✅ Datos completos. *Solo falta la inspección* — coordinámosla.');
+  window.open('https://wa.me/'+CO_WA+'?text='+encodeURIComponent(L.join('\n')), '_blank');
+  // 3) Confirmación al cliente
   const cont = document.getElementById('co_listaPlanes');
   cont.innerHTML =
     '<div style="max-width:440px;margin:0 auto;text-align:center;padding:18px 10px;">'
     + '<div style="margin-bottom:12px;"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#1fa855" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></div>'
     + '<div style="font-size:18px;font-weight:800;color:#13212f;margin-bottom:8px;">¡Solicitud de emisión enviada!</div>'
-    + '<div style="font-size:13.5px;color:#5a6b7d;line-height:1.6;margin-bottom:16px;">'
-    +   'Recibimos tu pedido por <strong>'+(op.ciaNombre||'Provincia Seguros')+'</strong>:<br>'
-    +   planTxt+(op.cobertura||'')+' · <strong>'+precio+'/mes</strong><br><br>'
-    +   'Un <strong>productor matriculado</strong> te va a contactar a la brevedad'+dondeTxt+' para confirmar la cobertura y avanzar con la emisión.'
-    + '</div>'
-    + '<div style="background:#eef4fb;border-radius:10px;padding:12px;font-size:12px;color:#2c5480;line-height:1.5;">Ante cualquier duda, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.</div>'
+    + '<div style="font-size:13.5px;color:#5a6b7d;line-height:1.6;margin-bottom:16px;">Te abrimos <strong>WhatsApp</strong> con todos tus datos para emitir en <strong>'+(op.ciaNombre||'Provincia Seguros')+'</strong>. <strong>Enviánoslo</strong> y coordinamos la <strong>inspección</strong> para emitir la póliza.</div>'
+    + '<div style="background:#eef4fb;border-radius:10px;padding:12px;font-size:12px;color:#2c5480;line-height:1.5;">Si no se abrió WhatsApp, escribinos al <strong>11 5452-2619</strong> mencionando tu cotización.</div>'
     + '<button onclick="coRecomendar()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;background:transparent;border:1.5px solid #1fa855;color:#0e7a42;border-radius:11px;padding:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-11.3 7.9L3 21l1.6-6.7A8.4 8.4 0 1 1 21 11.5Z"/></svg>Recomendá San Isidro Seguros</button>'
     + '</div>';
-  const _b = document.querySelector('#coResultados>button');
-  if(_b) _b.style.display='none';
+  const _b = document.querySelector('#coResultados>button'); if(_b) _b.style.display='none';
 }
 
-// Compartir/recomendar por WhatsApp (boca a boca)
 function coRecomendar(){
   const txt = '¡Hola! Te recomiendo San Isidro Seguros para cotizar tu seguro online en las mejores compañías, con asesoramiento sin costo 👉 https://sanisidroseguros.com.ar';
   window.open('https://wa.me/?text='+encodeURIComponent(txt), '_blank');
