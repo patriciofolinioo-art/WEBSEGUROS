@@ -1490,6 +1490,7 @@ let _coSearchMode = false;      // true cuando los modelos vienen de la búsqued
 let _coModeloMap = null;        // Map: modelo base -> [{n, c, version}] (derivado de VEHIC_PAR para la marca elegida)
 let _coCacheProv = {};          // cache de versiones de Provincia por "marca|anio" (null = sin datos)
 let _coVerReq = 0;              // anti-carrera para la carga async de versiones
+let _coVerCache = {};           // caché de versiones por "marca|modelo|año" (acelera la carga)
 let _coModReq = 0;              // anti-carrera para la carga async de modelos
 
 // Códigos de equipamiento/versión que NO forman parte del nombre del modelo
@@ -1630,17 +1631,21 @@ async function coModeloChange(){
   selVer.disabled = true;
 
   const a = parseInt(anio,10) || null;
-  let versiones = [];
+  const _ck = marca+'|'+modelo+'|'+(anio||'');
+  // Caché en memoria: si ya cargaste esta marca/modelo/año, es instantáneo (no vuelve a pedir).
+  let versiones = (_coVerCache[_ck] && _coVerCache[_ck].length) ? _coVerCache[_ck].slice() : [];
 
-  // 1º) Mercantil filtra el catálogo InfoAuto POR AÑO en el server: un auto 2015 no trae
-  //     líneas 2016/2008 (que hacían fallar la cotización). El código `c` es InfoAuto, sirve
-  //     para todas las compañías. Sólo lo usamos si hay año elegido.
-  if(a){
+  // 1º) Mercantil filtra el catálogo InfoAuto POR AÑO en el server (un 2015 no trae líneas 2016/2008).
+  //     Con TIMEOUT: si Mercantil tarda >3,5s (servidor frío), cortamos y caemos a la lista rápida.
+  if(!versiones.length && a){
     try{
-      const r = await fetch('/.netlify/functions/mercantil-vehiculos?marca='+encodeURIComponent(marca)+'&modelo='+encodeURIComponent(modelo)+'&anio='+encodeURIComponent(anio));
+      const ctrl = new AbortController();
+      const to = setTimeout(()=>ctrl.abort(), 3500);
+      const r = await fetch('/.netlify/functions/mercantil-vehiculos?marca='+encodeURIComponent(marca)+'&modelo='+encodeURIComponent(modelo)+'&anio='+encodeURIComponent(anio), { signal: ctrl.signal });
+      clearTimeout(to);
       const j = await r.json();
       if(j && j.ok && j.versiones && j.versiones.length) versiones = j.versiones;
-    }catch(e){ /* seguimos con el fallback */ }
+    }catch(e){ /* timeout o error → vamos al fallback rápido */ }
     if(reqId !== _coVerReq) return; // llegó una carga más nueva: descartamos esta
   }
 
@@ -1654,6 +1659,7 @@ async function coModeloChange(){
     if(reqId !== _coVerReq) return; // llegó una carga más nueva: descartamos esta
     if(a) versiones = versiones.filter(it=>{ const ay = coExtraerAnioVersion(it.n); return !ay || ay <= a; });
   }
+  if(versiones.length) _coVerCache[_ck] = versiones.slice();  // guardamos en caché
 
   if(!versiones.length){ selVer.innerHTML='<option value="">Sin versiones para ese año</option>'; selVer.disabled=true; return; }
   selVer.innerHTML = '<option value="">Seleccioná…</option>';

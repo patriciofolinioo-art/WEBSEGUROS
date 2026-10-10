@@ -222,7 +222,11 @@ function parsearProductos(resp) {
     const det = p.DetalleCobertura || p.detalleCobertura || {};
     const codigo = (det.Codigo || det.codigo || '').toString().trim();
     const desc = (det.Descripcion || det.descripcion || det['Descripción'] || '').toString().trim();
-    const premio = Number(p.PremioTotal ?? p.premioTotal ?? p.PremioSinIva) || 0;
+    // Galicia (Technical Pricing) devuelve el PREMIO ANUAL. El cotizador muestra "por mes" igual que
+    // las otras compañías, así que lo dividimos por 12. (Verificado: RC anual 1.016.444 / 12 ≈ 84.700,
+    // que coincide con la RC mensual de Paraná.)
+    const premioAnual = Number(p.PremioTotal ?? p.premioTotal ?? p.PremioSinIva) || 0;
+    const premio = premioAnual > 0 ? Math.round(premioAnual / 12) : 0;
     const casco = p.PrimaCasco || p.primaCasco || {};
     const suma = Number(casco.SumaAsegurada ?? casco.sumaAsegurada) || 0;
     if (premio > 0) {
