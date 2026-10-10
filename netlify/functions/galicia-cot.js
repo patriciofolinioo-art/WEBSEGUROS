@@ -144,6 +144,8 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
     IdRequest: 1,
     IdInstitucion: Number(process.env.GALICIA_INSTITUCION) || 0,
     NumeroOperacionProductor: 0,
+    // Origen de cotización (tabla Destino/Origen). Se toma de GALICIA_CODIGO_ORIGEN. Si no está, se omite.
+    Origen: Number(process.env.GALICIA_CODIGO_ORIGEN) || Number(process.env.GALICIA_ORIGEN) || undefined,
     VigenciaDesde: desde,
     VigenciaHasta: hasta,
     // IdVigencia: período de la póliza (tabla Vigencia). 1 = ANUAL (estándar auto). Marcado requerido en el manual GS.
@@ -161,18 +163,22 @@ function construirPayload(dat, idInfoAuto, idCobertura) {
       return pc;
     })(),
     PolizaElectronica: { EmailProductor: 'pfolini.si@gmail.com', EmailOrganizador: 'pfolini.si@gmail.com', EmailCliente: dat.email || 'cliente@web.com' },
+    // Tomador = PersonaFisica. Estructura EXACTA de la doc (WS_CotizacionEmision_3G):
+    //   Domicilio es un OBJETO único {CodigoPostal, IdProvincia} (no el array "Domicilios"),
+    //   eMail con esa grafía, e IngresosBrutos es OBLIGATORIO (0 = NO INSCRIPTO para Cons. Final).
+    //   Mandar "Domicilios"/"Documentos" rompía el mapeo ("Error mapping types ... Property: Tomador").
     Tomador: {
       $type: T_PERSONA,
+      IdCondicionFiscal: ID_CONDICION_FISCAL,
+      Sexo: dat.genero === 'F' ? 'F' : 'M',
+      eMail: dat.email || 'cliente@web.com',
       Nombre: dat.nombre || 'Cliente',
       Apellido: 'Web',
       FechaNacimiento: dat.nac || '1990-01-01',
-      Sexo: dat.genero === 'F' ? 'F' : 'M',
-      Email: dat.email || 'cliente@web.com',
       IdEstadoCivil: ID_ESTADO_CIVIL,
-      Domicilios: [{ IdProvincia: zona.prov, CodigoPostal: cp, IdLocalidad: zona.loc, DescripcionLocalidad: '', Calle: 'S/D', Numero: '0', IdTipoDomicilio: 1 }],
-      Telefonos: [{ IdTipoTelefono: 1, CodigoDeArea: areaNum, Celular: true, Numero: telNum }],
-      Documentos: [{ IdTipoDocumento: ID_TIPO_DOCUMENTO, Documento: (dat.dni || '10000000').replace(/\D/g, '') }],
-      IdCondicionFiscal: ID_CONDICION_FISCAL
+      Domicilio: { CodigoPostal: parseInt(cp, 10) || 1001, IdProvincia: zona.prov },
+      IngresosBrutos: { CuitIngresosBrutos: 0, IdIngresosBrutos: 0 },
+      Telefonos: [{ IdTipoTelefono: 1, CodigoDeArea: areaNum, Celular: true, Numero: telNum }]
     },
     Asegurado: null,
     ItemAuto: {
