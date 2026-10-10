@@ -1871,21 +1871,19 @@ function coRenderPlanes(){
     if(!g.items.length)return;
     hayItems=true;
     html+='<div style="font-size:13px;font-weight:800;color:#13212f;letter-spacing:.2px;margin:22px 0 11px;display:flex;align-items:center;gap:9px;"><span style="width:5px;height:17px;background:#a97e3f;border-radius:3px;display:inline-block;flex-shrink:0;"></span>'+g.titulo+'</div>';
-    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:11px;align-items:stretch;">';
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(158px,100%),1fr));gap:10px;align-items:stretch;">';
     g.items.forEach((op,idx)=>{
       const i=_coOpc.indexOf(op);
       const planTxt=op.plan?'Plan '+op.plan:'';
       const col=op.color||'#8e44ad';
       const barato = idx===0 && g.items.length>1;
-      html+='<div class="co-card" style="position:relative;border:1.5px solid '+(barato?col:'#e4e9ef')+';background:#fff;border-radius:14px;padding:'+(barato?'20px':'15px')+' 15px 15px;display:flex;align-items:center;gap:13px;box-shadow:0 1px 3px rgba(19,33,47,.05);">'
-        +(barato?'<div style="position:absolute;top:-10px;left:14px;background:'+col+';color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;letter-spacing:.4px;">★ MEJOR PRECIO</div>':'')
-        +'<div style="flex:1;min-width:0;">'
-        +'<div style="font-size:12px;font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">'+(op.ciaNombre||'')+(planTxt?' · '+planTxt:'')+'</div>'
-        +'<div style="font-size:15px;font-weight:800;color:#13212f;line-height:1.3;">'+(op.cobertura||'Cobertura')+'</div>'
-        +(op.suma>0?'<div style="font-size:12px;color:#7c8a98;margin-top:3px;">Suma asegurada: '+fmt(op.suma)+'</div>':'')
-        +'</div>'
-        +'<div style="text-align:right;white-space:nowrap;"><div style="font-size:20px;font-weight:800;color:#13212f;line-height:1;">'+fmt(op.premio)+'</div><div style="font-size:11px;font-weight:600;color:#8a97a4;margin-top:2px;">por mes</div></div>'
-        +'<button onclick="coElegir('+i+')" style="background:'+col+';color:#fff;border:none;border-radius:10px;padding:12px 15px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:inherit;box-shadow:0 2px 8px '+col+'33;">Solicitar</button>'
+      html+='<div class="co-card" style="position:relative;display:flex;flex-direction:column;gap:6px;border:1.5px solid '+(barato?col:'#e4e9ef')+';background:#fff;border-radius:13px;padding:'+(barato?'17px':'13px')+' 13px 13px;box-shadow:0 1px 3px rgba(19,33,47,.05);">'
+        +(barato?'<div style="position:absolute;top:-9px;left:12px;background:'+col+';color:#fff;font-size:9.5px;font-weight:800;padding:2px 9px;border-radius:999px;letter-spacing:.3px;">★ MEJOR PRECIO</div>':'')
+        +'<div style="font-size:11px;font-weight:800;color:'+col+';text-transform:uppercase;letter-spacing:.3px;line-height:1.2;">'+(op.ciaNombre||'')+(planTxt?' · '+planTxt:'')+'</div>'
+        +'<div style="font-size:12px;font-weight:600;color:#3a4a58;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:32px;">'+(op.cobertura||'Cobertura')+'</div>'
+        +(op.suma>0?'<div style="font-size:10.5px;color:#8a97a4;">Suma: '+fmt(op.suma)+'</div>':'')
+        +'<div style="display:flex;align-items:baseline;gap:4px;margin-top:auto;padding-top:3px;"><div style="font-size:19px;font-weight:800;color:#13212f;line-height:1;">'+fmt(op.premio)+'</div><div style="font-size:10.5px;font-weight:600;color:#8a97a4;">/mes</div></div>'
+        +'<button onclick="coElegir('+i+')" style="width:100%;background:'+col+';color:#fff;border:none;border-radius:9px;padding:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px '+col+'33;">Solicitar</button>'
         +'</div>';
     });
     html+='</div>';
