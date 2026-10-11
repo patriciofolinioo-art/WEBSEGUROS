@@ -1792,6 +1792,7 @@ async function coCotizar(){
   // Estado por compañía (para mostrar chips en vivo) y lista acumulada
   _coOpc = [];
   _coPend = CO_CIAS.length;
+  _coAjusteHecho = false;
   _coEstado = {};
   CO_CIAS.forEach(c=>{ _coEstado[c.id] = { nombre:c.nombre, color:c.color, estado:'pendiente' }; });
 
@@ -1806,8 +1807,40 @@ async function coCotizar(){
       _coEstado[cia.id].estado = ops.length ? 'ok' : 'sin';
       if(ops.length){ _coOpc = _coOpc.concat(ops).sort((a,b)=> a.premio - b.premio); }
     }).catch(()=>{ _coEstado[cia.id].estado = 'error'; })
-    .finally(()=>{ _coPend--; coRenderPlanes(); });
+    .finally(()=>{ _coPend--; coRenderPlanes(); if(_coPend===0) coAjustarProvincia(); });
   });
+}
+
+// Ajuste de suma de Provincia: Provincia valúa con su tabla propia (a veces desactualizada, ej.
+// autos chinos → suma irrealmente baja). Si quedó MUY por debajo de las que usan InfoAuto
+// (Mercantil/Galicia/Digna), re-cotizamos Provincia mandándole ese valor de referencia, para que
+// la suma y los premios de Terceros Completo/Todo Riesgo queden alineados con el resto.
+let _coAjusteHecho = false;
+async function coAjustarProvincia(){
+  if(_coAjusteHecho || !_coDat) return;
+  const infoCias = ['mercantil','galicia','digna'];
+  const refs = _coOpc.filter(o=>infoCias.indexOf(o.cia)>=0 && o.suma>0).map(o=>o.suma);
+  const provOps = _coOpc.filter(o=>o.cia==='provincia' && o.suma>0);
+  if(!refs.length || !provOps.length) return;
+  const refSuma  = Math.max.apply(null, refs);
+  const provSuma = Math.max.apply(null, provOps.map(o=>o.suma));
+  if(!(refSuma>0 && provSuma < refSuma*0.7)) return;  // sólo si la suma de Provincia está MUY baja
+  _coAjusteHecho = true;
+  try{
+    const resp = await fetch('/.netlify/functions/provincia-cot', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({}, _coDat, { suma: Math.round(refSuma) }))
+    });
+    const json = await resp.json();
+    if(json && json.opciones && json.opciones.length){
+      const pc = CO_CIAS.find(c=>c.id==='provincia') || { nombre:'Provincia Seguros', color:'#8e44ad' };
+      _coOpc = _coOpc.filter(o=>o.cia!=='provincia').concat(json.opciones.map(op=>({
+        cia:'provincia', ciaNombre:pc.nombre, color:pc.color,
+        plan:op.plan||'', cobertura:op.cobertura||'', premio:op.premio||0, suma:op.suma||0, grupo:op.grupo||''
+      }))).sort((a,b)=>a.premio-b.premio);
+      coRenderPlanes();
+    }
+  }catch(e){ /* si falla, quedan las opciones originales de Provincia */ }
 }
 
 // Consulta a una compañía y devuelve sus opciones etiquetadas (o [] si falla/sin precios)
