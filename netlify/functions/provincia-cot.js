@@ -31,7 +31,10 @@ const MARCA_MAP = {
   'Kia':'KIA','Citroën':'CIT','Mercedes-Benz':'MBZ','BMW':'BMW','Audi':'AUD',
   'Jeep':'JEP','Dodge':'DOD','RAM':'RAM','Mitsubishi':'MIT','Mazda':'MAZ',
   'Subaru':'SUB','Suzuki':'SUZ','Volvo':'VLV','Porsche':'POR','Tesla':'TES',
-  'BYD':'BYD','Chery':'CHE','GWM':'GWM','MG':'MG0','BAIC':'BAI','Geely':'GEE',
+  // OJO: 'Chery' NO va acá. Su código de marca en Provincia no es 'CHE' (ese es Chevrolet);
+  // ponerlo igual hacía que un Chery cotizara como un Chevrolet (ej. Tiggo 3 → Agile). Al dejarlo
+  // afuera, buscarCodigoMarca pregunta el código real a Provincia en vivo.
+  'BYD':'BYD','GWM':'GWM','MG':'MG0','BAIC':'BAI','Geely':'GEE',
   'JAC':'JAC','Changan':'CHA','Land Rover':'LAN','Lexus':'LEX','MINI':'MIN',
   'Seat':'SEA','Alfa Romeo':'ALF','DS':'DS0','Isuzu':'ISU'
 };
