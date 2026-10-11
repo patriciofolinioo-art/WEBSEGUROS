@@ -125,16 +125,20 @@ async function buscarCodigoModelo(token, marcaCod, nombreModelo, anio, producto,
   if (!encontrado) {
     const RUIDO = /^(\d+|PTAS?|PUERTAS?|AT|MT|CVT|L\/?\d+|\d+P)$/;
     const raw = nombreUp.split(/\s+/).filter(Boolean);
-    const qTokens = raw.filter((t, i) => i === 0 ? true : !RUIDO.test(t));
-    // Para modelos "X 55" el head "X" es poco distintivo: sumamos el 2º token al head si es corto/numérico.
-    let head = qTokens[0] || '';
-    if (head.length <= 2 && qTokens[1]) head = head + qTokens[1];
+    // Mantenemos SIEMPRE los 2 primeros tokens: el modelo + su designación ("TIGGO 3", "MAZDA 3",
+    // "SERIE 3"). Recién del 3er token filtramos ruido. Si no, el "3" de "Tiggo 3" se perdía y
+    // matcheaba un Tiggo viejo (Tiggo 2/3/5 quedaban indistinguibles).
+    const kept = raw.filter((t, i) => i <= 1 ? true : !RUIDO.test(t));
+    let head = kept[0] || '';
+    let restStart = 1;
+    if (head.length <= 2 && kept[1] && /^\d+$/.test(kept[1])) { head = head + kept[1]; restStart = 2; } // "X 55"->"X55" (solo si el 2º es nº; "C3 FEEL" NO se pega)
     const headJoin = head.replace(/\s+/g, '');
+    const restTokens = kept.slice(restStart);
     let best = null, bestScore = -1;
     arr.forEach(m => {
       const d = (m.descripcion || m.descripción || '').toUpperCase();
       const headMatch = d.replace(/\s+/g, '').includes(headJoin) ? 1 : 0;
-      const rest = qTokens.slice(1).reduce((s, t) => s + (d.includes(t) ? 1 : 0), 0);
+      const rest = restTokens.reduce((s, t) => s + (d.includes(t) ? 1 : 0), 0);
       const sc = headMatch * 10 + rest;
       if (sc > bestScore) { bestScore = sc; best = m; }
     });

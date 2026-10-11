@@ -114,17 +114,24 @@ function rankearVehiculos(marca, textoModelo, anio, maxN) {
   // 320, 155) y descartarlo hacía que un 208 matcheara un 207 (auto equivocado → no cotizaba).
   const RUIDO = /^(\d+|PTAS?|PUERTAS?|AT|MT|CVT|L\/?\d+|\d+P)$/;
   const raw = q.split(/\s+/).filter(Boolean);
-  const qTokens = raw.filter((t, i) => i === 0 ? true : !RUIDO.test(t));
+  // Mantenemos SIEMPRE los 2 primeros tokens: modelo + su designación ("TIGGO 3", "MAZDA 3",
+  // "SERIE 3"). Recién del 3er token filtramos ruido; si no, el "3" de "Tiggo 3" se perdía.
+  const qTokens = raw.filter((t, i) => i <= 1 ? true : !RUIDO.test(t));
   if (!qTokens.length) return [];
   const anioNum = parseInt(anio, 10) || 0;
   const mk = (x) => ({ codMarca: m.codMarca, codModelo: x.cod, nombre: x.nombre });
   // Comparación del head sin espacios para tolerar tipeo ("ECOSPORT" ↔ "ECO SPORT", "C3" ↔ "C 3").
-  const head = qTokens[0].replace(/\s+/g, '');
+  // Head corto (X, A, C, DS) se pega con el 2º token: "X 55"→"X55", "A 3"→"A3".
+  let head = qTokens[0] || '';
+  let restStart = 1;
+  if (head.length <= 2 && qTokens[1] && /^\d+$/.test(qTokens[1])) { head = head + qTokens[1]; restStart = 2; } // "X 55"->"X55" solo si el 2º es nº
+  head = head.replace(/\s+/g, '');
+  const restTokens = qTokens.slice(restStart);
   const scored = m.modelos.map(x => {
     const nom = (x.nombre || '').toUpperCase();
     const exact = nom === q ? 1 : 0;                                  // match exacto: prioridad máxima
     const headMatch = nom.replace(/\s+/g, '').includes(head) ? 1 : 0; // el MODELO tiene que matchear
-    const rest = qTokens.slice(1).reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0); // terminación desempata
+    const rest = restTokens.reduce((s, t) => s + (nom.includes(t) ? 1 : 0), 0); // terminación desempata
     // Año de línea (L/XX). Bonus si es igual/anterior al año pedido y cercano; penalización fuerte si
     // es POSTERIOR (no puede ser). Sin tag → neutral (0), no queremos castigar a los que no lo traen.
     const ly = lineaAnioParana(nom);
